@@ -1,0 +1,9 @@
+dependencies:
+ - python=3.7
+ - numpy
+ - scipy
+ - pytorch
+ - torchvision
+ - cudatoolkit=9.0
+ - gym
+ - matplotlib
