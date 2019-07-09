@@ -1,3 +1,9 @@
+def initialize_state():
+    """Randomly initialize state
+
+    Returns:
+    x (np.ndarray): the intial state of the system
+    """
 
 def generate_control_action(x, u_m):
     """Generate control action given state and motion primitive
@@ -20,7 +26,7 @@ def simulate_dynamics(x, u_c):
     u_c (np.ndarray): the control action
 
     Returns:
-    x_next (np.ndarray): the control action for input into dynamics
+    x_next (np.ndarray): the updated state
     """
 
     pass
