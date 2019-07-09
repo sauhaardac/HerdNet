@@ -15,4 +15,6 @@ bash Anaconda3-2019.03-Linux-x86_64.sh
 3. Proceed with the installation and close + reopen the terminal.
 4. Navigate to this cloned repo and type:
 ```bash
+conda env create -f environment.yml -n safetynet # may take some time
+conda activate safetynet
 ```
