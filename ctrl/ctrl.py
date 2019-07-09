@@ -4,6 +4,7 @@ def initialize_state():
     Returns:
     x (np.ndarray): the intial state of the system
     """
+    pass
 
 def generate_control_action(x, u_m):
     """Generate control action given state and motion primitive
