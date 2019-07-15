@@ -8,6 +8,7 @@ from scipy.stats import norm
 from numpy.random import rand
 from numpy.linalg import norm
 from math import exp
+import pickle
 import sys
 import random
 
@@ -34,6 +35,10 @@ class BoidsEnv(gym.Env):
         self.x.append(self.x[-1] + dxdt * self.param['dt'])
 
         return self.x[-1]
+
+    def save_epi(self, path):
+        with open(path, 'wb') as handle:
+            pickle.dump(self.x, handle)
 
     def reset(self):
         """Reset enviornment"""
@@ -105,8 +110,8 @@ def init_plot(param):
     fig = plt.figure(figsize=(10, 10), dpi=80)
     plt.ylim([-2, 2])
     plt.xlim([-2, 2])
-    boidplot, = plt.plot([], [], 'o', c=param['birdcolor'])
-    agentplot, = plt.plot([], [], 'go', c=param['agentcolor'])
+    boidplot = plt.quiver([], [], [], [], color=param['birdcolor'])
+    agentplot = plt.quiver([], [], [], [], color=param['agentcolor'])
 
     return {'fig' : fig, 'boidplot' : boidplot, 'agentplot' : agentplot}
 
@@ -119,21 +124,37 @@ def plot_boids(param, x, plot):
 
     plotx = []
     ploty = []
+    plotu = []
+    plotv = []
+
     for i in range(param['num_birds']):
         p_i = get_p(param, x, i)
         plotx.append(p_i[0])
         ploty.append(p_i[1])
 
-    boidplot.set_data(plotx, ploty)
+        v_i = get_v(param, x, i) / 100
+        plotu.append(v_i[0])
+        plotv.append(v_i[1])
+
+    
+    boidplot.set_offsets(np.array([plotx, ploty]).T)
+    boidplot.set_UVC(plotu, plotv)
 
     plotx = []
     ploty = []
+    plotu = []
+    plotv = []
     for i in range(param['num_agents']):
         p_i = get_p(param, x, i + param['num_birds'])
         plotx.append(p_i[0])
         ploty.append(p_i[1])
 
-    agentplot.set_data(plotx, ploty)
+        v_i = get_v(param, x, i + param['num_birds']) / 100
+        plotu.append(v_i[0])
+        plotv.append(v_i[1])
+
+    agentplot.set_offsets(np.array([plotx, ploty]).T)
+    agentplot.set_UVC(plotu, plotv)
 
     fig.canvas.draw()
     fig.canvas.flush_events()

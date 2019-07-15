@@ -118,10 +118,6 @@ def main():
 
     print_interval = 10
 
-    mask = np.zeros(param['num_dims'] * 2 * param['n'])
-    for i in range(param['num_birds']):
-        mask[2 * i * param['num_dims'] : (2 * i + 1) * param['num_dims']] = 1
-
     for n_epi in range(10000):
         done = False
         x = env.reset()
@@ -132,10 +128,15 @@ def main():
 
             x_prime = env.step(u)
 
-            if(param['render'] and n_epi > 1000):
+            if(n_epi > 1000):
                 env.render()
 
-            reward = 2 - np.linalg.norm(x_prime * mask) / np.sqrt(param['num_birds'])
+            sum_x = np.zeros(param['num_dims'])
+            for i in range(param['num_birds']):
+                sum_x += x_prime[2 * i * param['num_dims'] : (2 * i + 1) * param['num_dims']]
+
+            reward = (2 - np.linalg.norm(sum_x/param['num_birds'])) / 2
+
             score += reward
             
             model.put_data((x, u, reward, x_prime, prob[u].item(), False))
@@ -145,11 +146,10 @@ def main():
             if done:
                 break
 
-        if(n_epi > 1000):
-            env.save_epi(f"logs/episode-{n_epi}.pkl")
-
         if n_epi%print_interval==0 and n_epi!=0:
+            torch.save(model.state_dict(), f"saves/{score/print_interval}-{n_epi}.save")
             print("# of episode :{}, avg score : {:.3f}".format(n_epi, score/(print_interval * param['ep_len'])))
+            env.save_epi(f"logs/episode-{n_epi}-score-{score/(print_interval * param['ep_len'])}.pkl")
             score = 0.0
 
         model.train_net()
