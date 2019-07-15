@@ -1,10 +1,18 @@
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
-from sim import *
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from scipy.stats import norm 
+from numpy.random import rand
+from numpy.linalg import norm
+from math import exp
+import sys
+import random
 
 class BoidsEnv(gym.Env):
-    def __init__(self, param):
+    def __init__(self):
         """Empty constructor function to satisfy gym requirements"""
 
         pass
@@ -14,6 +22,7 @@ class BoidsEnv(gym.Env):
 
         self.param = param 
         self.x = [init_state(param)]
+        self.observation_space = spaces.Box(-5, 5, self.x[-1].shape)
 
         if param['render']:
             self.plot = init_plot(param)
@@ -21,24 +30,179 @@ class BoidsEnv(gym.Env):
     def step(self, u):
         """Simulate step in environment"""
 
-        dxdt = get_f(self.param, self.x[-1]) + get_g(self.param, u)
-        x.append(self.x[-1] + dxdt * self.param['dt'])
+        dxdt = get_f(self.param, self.x[-1]) + get_g(self.param, self.x[-1], u)
+        self.x.append(self.x[-1] + dxdt * self.param['dt'])
+
+        return self.x[-1]
 
     def reset(self):
         """Reset enviornment"""
 
         self.x = [init_state(self.param)]
-        return self.x
+        return self.x[-1]
     
     def render(self):
         """Render enviornment"""
 
-        plot_boids(self.param, x, self.plot)
+        plot_boids(self.param, self.x[-1], self.plot)
+
+####################
+# HELPER FUNCTIONS #
+####################
+
+def get_p(param, x, agent_idx):
+    """Returns the position of the specified agent given the state vector"""
+
+    return x[2 * agent_idx * param['num_dims'] : (2 * agent_idx + 1) * param['num_dims']]
+
+def get_v(param, x, agent_idx):
+    """Returns the velocity of the specified agent given the state vector"""
+
+    return x[(2 * agent_idx + 1) * param['num_dims']: 2 * (agent_idx + 1) * param['num_dims']]
+
+def get_min_dist(param, x):
+    """Returns the minimum distance between any pair of agents in the given state vector"""
+
+    min_dist = sys.maxsize
+    for i in range(param['num_agents'] + param['num_birds']):
+        p_i = get_p(param, x, i)
+        for j in range(i+1, param['num_agents'] + param['num_birds']):
+            p_j = get_p(param, x, j)
+            dist = norm(p_j - p_i)
+            if dist < min_dist:
+                min_dist = dist;
+    return min_dist
+
+def init_state(param):
+    """Initializes the state of the system"""
+
+    x0 = np.zeros(2 * param['n'] * param['num_dims'])
+
+    min_dist = 0
+    while min_dist < param['min_dist_constraint']:
+        for i in range(param['num_birds']):
+            p_i = rand(param['num_dims']) * param['plim'] - param['plim'] / 2
+            v_i = rand(param['num_dims']) * param['vlim'] - param['vlim'] / 2
+
+            idx = i * 2 * param['num_dims']
+            x0[idx : idx + 2 * param['num_dims']] = np.concatenate([p_i, v_i])
+
+        for i in range(param['num_agents']):
+            p_i = rand(param['num_dims']) * param['plim'] - param['plim'] / 2
+            v_i = rand(param['num_dims']) * param['vlim'] - param['vlim'] / 2
+
+            idx = (i + param['num_birds']) * 2 * param['num_dims']
+            x0[idx : idx + 2 * param['num_dims']] = np.concatenate([p_i, v_i])
+
+        min_dist = get_min_dist(param, x0)
+
+    return x0
+
+def init_plot(param):
+    """Initializes the Matplotlib visualization, necessary for visualization"""
+
+    plt.ion()
+    fig = plt.figure(figsize=(10, 10), dpi=80)
+    plt.ylim([-2, 2])
+    plt.xlim([-2, 2])
+    boidplot, = plt.plot([], [], 'o', c=param['birdcolor'])
+    agentplot, = plt.plot([], [], 'go', c=param['agentcolor'])
+
+    return {'fig' : fig, 'boidplot' : boidplot, 'agentplot' : agentplot}
+
+def plot_boids(param, x, plot):
+    """Update the plot with the current state given a pre-initialized plot"""
+
+    fig = plot['fig']
+    boidplot = plot['boidplot']
+    agentplot = plot['agentplot']
+
+    plotx = []
+    ploty = []
+    for i in range(param['num_birds']):
+        p_i = get_p(param, x, i)
+        plotx.append(p_i[0])
+        ploty.append(p_i[1])
+
+    boidplot.set_data(plotx, ploty)
+
+    plotx = []
+    ploty = []
+    for i in range(param['num_agents']):
+        p_i = get_p(param, x, i + param['num_birds'])
+        plotx.append(p_i[0])
+        ploty.append(p_i[1])
+
+    agentplot.set_data(plotx, ploty)
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+def get_adjacency(param, x):
+    """Get the adjacency matrix between agents given the state vector"""
+
+    A = np.zeros([param['n'], param['n']])
+    for i in range(param['n']):
+        p_i = get_p(param, x, i)
+        for j in range(i, param['n']):
+            p_j = get_p(param, x, j)
+            dist = norm(p_j - p_i)
+            if dist < param['r_comm']:
+                A[i, j] = exp(-param['lambda_a'] * dist)
+            else:
+                A[i, j] = 0
+            A[j, i] = A[i, j]
+    return A
 
 
-####################################################################################################
-#                                          SIMULATION UNIT TEST                                    #
-####################################################################################################
+def get_f(param, x):
+    """Get f(x), the drift dynamics of the system with no control input"""
+
+    A = get_adjacency(param, x)
+
+    f = np.zeros(2 * param['n'] * param['num_dims'])
+
+    for i in range(param['num_birds']):
+        p_i = get_p(param, x, i)
+        v_i = get_v(param, x, i)
+        a_i = np.zeros(param['num_dims'])
+
+        for j in range(param['n']):
+            if i == j:
+                continue
+
+            p_j = get_p(param, x, j)
+            v_j = get_v(param, x, j)
+            r_ij = p_j - p_i
+
+            a_i += A[i, j] * (param['kv'] * (v_j - v_i))
+            a_i += param['kx'] * r_ij * (1 - param['r_des']/norm(r_ij))
+
+        idx = i * 2 * param['num_dims']
+        f[idx : idx + 2 * param['num_dims']] = np.concatenate([v_i, a_i])
+
+    return f
+
+def get_g(param, x, u):
+
+    # Define control matrix
+    G = {0 : np.array([0,  param['a_u']]),
+         1 : np.array([0, -param['a_u']]),
+         2 : np.array([ param['a_u'], 0]),
+         3 : np.array([-param['a_u'], 0])}
+
+    g = np.zeros(2 * param['n'] * param['num_dims'])
+    for i in range(param['num_birds'], param['n']):
+        v_i = get_v(param, x, i)
+        idx = i * 2 * param['num_dims']
+        g[idx : idx + 2 * param['num_dims']] = np.concatenate([v_i, G[u]])
+
+    return g
+
+
+########################
+# SIMULATION UNIT TEST #
+########################
 
 if __name__ == '__main__':
     param = {'render' : True, 'num_birds' : 6, 'num_agents' : 1, 'num_dims' : 2, 'plim' : 1, 'vlim' : 1, 'min_dist_constraint' : 0.3,
@@ -46,11 +210,12 @@ if __name__ == '__main__':
             'lambda_a' : 0.1, 'dt' : 0.05}
 
     param['n'] = param['num_birds'] + param['num_agents']
+    param['a_u'] = 1.
 
     plot = init_plot(param)
     x = init_state(param)
 
     import time
     for i in range(1000):
-        x += get_f(param, x) * param['dt']
+        x += (get_f(param, x) + get_g(param, x, random.randint(0, 3))) * param['dt']
         plot_boids(param, x, plot)
