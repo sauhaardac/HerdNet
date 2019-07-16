@@ -47,7 +47,7 @@ def main():
 
     param['n'] = param['num_birds'] + param['num_agents']
     param['a_u'] = 1.
-    param['ep_len'] = 250
+    param['ep_len'] = 2150
 
     env.init(param)
 
@@ -58,17 +58,39 @@ def main():
 
     print_interval = 10
 
-    for i in range(10):# save in saves:
+    x_mask = np.zeros(param['num_dims'] * 2 * param['n'])
+    y_mask = np.zeros(param['num_dims'] * 2 * param['n'])
+
+    for agent_idx in range(param['n']):
+        x_mask[2 * agent_idx * param['num_dims'] : (2 * agent_idx + 1) * param['num_dims'] - 1] = 1
+        y_mask[2 * agent_idx * param['num_dims'] + 1 : (2 * agent_idx + 1) * param['num_dims']] = 1
+
+    for episode in range(10):# save in saves:
         model.load_state_dict(torch.load(save))
-        s = env.reset()
+        s = env.reset() + x_mask + y_mask
         done = False
+
+        centroidx, centroidy = [], []
+        trajx, trajy = [], []
         for i in range(600):
             prob = model.pi(torch.from_numpy(s).float().to(device))
             m = Categorical(prob)
             a = m.sample().item()
-            s_prime = env.step(a)
-            env.render()
-            s = s_prime
+            trajx.append(1 * np.cos(i / (100/np.pi)))
+            trajy.append(1 * np.sin(i / (100/np.pi)))
+            s_prime = env.step(a) 
+
+            x, y = [], []
+            for agent_idx in range(param['num_birds']):
+                x.append(s_prime[2 * agent_idx * param['num_dims'] : (2 * agent_idx + 1) * param['num_dims'] - 1])
+                y.append(s_prime[2 * agent_idx * param['num_dims'] + 1 : (2 * agent_idx + 1) * param['num_dims']])
+
+            centroidx.append(np.mean(x))
+            centroidy.append(np.mean(y))
+
+            env.render((trajx[-200:], trajy[-200:]), (centroidx[-200:], centroidy[-200:]))
+
+            s = s_prime - trajx[-1] * x_mask - trajy[-1] * y_mask
 
         score = 0
 

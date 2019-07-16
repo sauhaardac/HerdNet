@@ -26,7 +26,7 @@ class BoidsEnv(gym.Env):
         self.observation_space = spaces.Box(-5, 5, self.x[-1].shape)
 
         if param['render']:
-            self.plot = init_plot(param)
+            self.plot = init_tracking_plot(param)
 
     def step(self, u):
         """Simulate step in environment"""
@@ -46,10 +46,13 @@ class BoidsEnv(gym.Env):
         self.x = [init_state(self.param)]
         return self.x[-1]
     
-    def render(self):
+    def render(self, goal = None, centroid = None):
         """Render enviornment"""
 
-        plot_boids(self.param, self.x[-1], self.plot)
+        if(goal is None or centroid is None):
+            plot_boids(self.param, self.x[-1], self.plot)
+        else:
+            plot_tracking_boids(self.param, self.x[-1], self.plot, goal, centroid)
 
 ####################
 # HELPER FUNCTIONS #
@@ -112,8 +115,77 @@ def init_plot(param):
     plt.xlim([-2, 2])
     boidplot = plt.quiver([], [], [], [], color=param['birdcolor'])
     agentplot = plt.quiver([], [], [], [], color=param['agentcolor'])
+    theta = np.linspace(-np.pi, np.pi, 200)
+    circleplot, = plt.plot(np.sin(theta), np.cos(theta))
 
-    return {'fig' : fig, 'boidplot' : boidplot, 'agentplot' : agentplot}
+    return {'fig' : fig, 'boidplot' : boidplot, 'agentplot' : agentplot, 'circleplot' : circleplot}
+
+def init_tracking_plot(param):
+    """Initializes the Matplotlib visualization, necessary for visualization"""
+
+    plt.ion()
+    fig = plt.figure(figsize=(10, 10), dpi=80)
+    plt.ylim([-2, 2])
+    plt.xlim([-2, 2])
+    boidplot = plt.quiver([], [], [], [], color=param['birdcolor'])
+    agentplot = plt.quiver([], [], [], [], color=param['agentcolor'])
+    circleplot, = plt.plot([], [])
+
+    centroidtraj, = plt.plot([], [])
+    goaltraj, = plt.plot([], [])
+
+    return {'fig' : fig, 'boidplot' : boidplot, 'agentplot' : agentplot,
+            'circleplot' : circleplot, 'centroidtraj' : centroidtraj, 'goaltraj' : goaltraj}
+
+def plot_tracking_boids(param, x, plot, goal, centroid):
+    """Update the plot with the current state given a pre-initialized plot"""
+
+    fig = plot['fig']
+    boidplot = plot['boidplot']
+    agentplot = plot['agentplot']
+    # circleplot = plot['circleplot']
+    centroidtraj = plot['centroidtraj']
+    goaltraj = plot['goaltraj']
+
+    plotx = []
+    ploty = []
+    plotu = []
+    plotv = []
+
+    for i in range(param['num_birds']):
+        p_i = get_p(param, x, i)
+        plotx.append(p_i[0])
+        ploty.append(p_i[1])
+
+        v_i = get_v(param, x, i) / 100
+        plotu.append(v_i[0])
+        plotv.append(v_i[1])
+
+    
+    boidplot.set_offsets(np.array([plotx, ploty]).T)
+    boidplot.set_UVC(plotu, plotv)
+
+    plotx = []
+    ploty = []
+    plotu = []
+    plotv = []
+    for i in range(param['num_agents']):
+        p_i = get_p(param, x, i + param['num_birds'])
+        plotx.append(p_i[0])
+        ploty.append(p_i[1])
+
+        v_i = get_v(param, x, i + param['num_birds']) / 100
+        plotu.append(v_i[0])
+        plotv.append(v_i[1])
+
+    agentplot.set_offsets(np.array([plotx, ploty]).T)
+    agentplot.set_UVC(plotu, plotv)
+
+    centroidtraj.set_data(*centroid)
+    goaltraj.set_data(*goal)
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
 def plot_boids(param, x, plot):
     """Update the plot with the current state given a pre-initialized plot"""
