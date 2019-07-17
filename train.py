@@ -11,6 +11,17 @@ import datetime
 
 torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
+#Hyperparameters
+learning_rate = 0.0005
+gamma         = 0.98
+lmbda         = 0.95
+eps_clip      = 0.1
+K_epoch       = 3
+T_horizon     = 20
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        
 def main():
     env = gym.make('boids-v0')
 
