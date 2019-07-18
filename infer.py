@@ -1,100 +1,131 @@
-import gym
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+from param import params
 import gym_boids
+import gym
+from net.ppo import PPO
 from torch.distributions import Categorical
+import torch
+import numpy as np
+from util import Logger
 import sys
-import datetime
 
-program_start_time = datetime.datetime.now()
-# num_birds = int(sys.argv[1])
-save = sys.argv[1]
+def run_network(train, x):
+    """ Runs the network to determine action given current state
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    Parameters:
+        train (dict): dictionary of training variables
+        x (np.array): current state to input into neural network
 
-class PPO(nn.Module):
-    def __init__(self, inp):
-        super(PPO, self).__init__()
-        self.data = []
+    Returns:
+        prob (torch.FloatTensor): output of the network, raw softmax distribution
+        m (torch.FloatTensor): categorical distribution of output
+        u (torch.FloatTensor): actual action selected by the network
+
+    """
+
+    prob = train['model'].pi(torch.from_numpy(x).float().to(params['device']))
+    m = Categorical(prob)
+    u = m.sample().item()
+    return prob, m, u
+
+def transform_state(x, i):
+    """ Transforms the state to make the training set more varied.
+
+    Shifts the position state in a circle so the agents are forced to
+    track a point rather than simply move towards a goal point. This
+    is a harder problem to learn.
+
+    Params:
+        x (np.array): current state
+        i (int): iteration # within the episode
+
+    Returns:
+        x_transformed (np.array): augmented/transformed state
+
+    """
+
+    x_transformed = x.copy()
+
+    for agent_idx in range(params['n']):
+        idx = i / (params['ep_len'] / (2 * np.pi))
+
+        x_transformed[2 * agent_idx * params['num_dims'] :
+                (2 * agent_idx + 1) * params['num_dims'] - 1] -= np.cos(idx)
+
+        x_transformed[2 * agent_idx * params['num_dims'] + 1 :
+                (2 * agent_idx + 1) * params['num_dims']] -= np.sin(idx)
+
+    return x_transformed
+
+def episode(train):
+    """ Runs one episode of training
+
+    Parameters:
+        train (dict): dictionary of training variables
+
+    Returns:
+        episode_score (float): average reward during the episode
+    """
         
-        self.fc1   = nn.Linear(inp, 128)
-        self.fc2   = nn.Linear(128, 256)
-        self.fc_pi = nn.Linear(256,4)
-        self.fc_v  = nn.Linear(256,1)
+    episode_score = 0
+    x = train['env'].reset()
 
-    def pi(self, x, softmax_dim = 0):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc_pi(x)
-        prob = F.softmax(x, dim=softmax_dim)
-        return prob
-    
-    def v(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        v = self.fc_v(x)
-        return v
-        
-def main():
-    env = gym.make('boids-v0')
+    trajx, trajy, centroidx, centroidy = [], [], [], []
 
-    param = {'render' : True, 'num_birds' : 6, 'num_agents' : 1, 'num_dims' : 2, 'plim' : 1, 'vlim' : 1, 'min_dist_constraint' : 0.3,
-            'agentcolor' : 'blue', 'birdcolor' : 'green', 'r_comm' : 1., 'r_des' : 0.8, 'kx' : 2, 'kv' : 2,
-            'lambda_a' : 0.1, 'dt' : 0.05}
+    for i in range(2 * params['ep_len']):
+        x = transform_state(x, i)
+        prob, m, u = run_network(train, x)
+        x_prime = train['env'].step(u)
 
-    param['n'] = param['num_birds'] + param['num_agents']
-    param['a_u'] = 1.
-    param['ep_len'] = 2150
+        trajx.append(np.cos(i / (params['ep_len']/(2 * np.pi))))
+        trajy.append(np.sin(i / (params['ep_len']/(2 * np.pi))))
 
-    env.init(param)
+        x, y = [], []
+        for agent_idx in range(params['num_birds']):
+            x.append(x_prime[2 * agent_idx * params['num_dims'] : (2 * agent_idx + 1) * params['num_dims'] - 1])
+            y.append(x_prime[2 * agent_idx * params['num_dims'] + 1 : (2 * agent_idx + 1) * params['num_dims']])
 
-    model = PPO(env.observation_space.shape[0]).to(device)
+        centroidx.append(np.mean(x))
+        centroidy.append(np.mean(y))
+
+        train['env'].render((trajx[-200:], trajy[-200:]), (centroidx[-200:], centroidy[-200:]))
+
+        x = x_prime
+
+    episode_score /= params['ep_len']
+
+    return episode_score
+
+def train():
+    """ Trains an RL model.
+
+    First initializes environment, logging, and machine learning model. Then iterates
+    through epochs of training and prints score intermittently.
+    """
+
+    train = {}
+    train['env'] = gym.make(params['env_name'])
+    train['env'].init(params)
+    train['model'] = PPO(params, train['env'].observation_space.shape[0]).to(params['device'])
+    train['model'].load_state_dict(torch.load(sys.argv[1]))
+
+    # logger = Logger()
+
     score = 0.0
-    epi_score = 0.0
-    max_epi_score = 0.0
 
-    print_interval = 10
+    for n_epi in range(10**6):
+        ep_score = episode(train)
+        # logger.episode_score(ep_score, n_epi)
+        score += ep_score
 
-    x_mask = np.zeros(param['num_dims'] * 2 * param['n'])
-    y_mask = np.zeros(param['num_dims'] * 2 * param['n'])
+        if n_epi % params['print_interval'] == 0 and n_epi != 0:
+            print(f"Episode #{n_epi:5d} | Avg Score : {score / params['print_interval']:2.2f}")
 
-    for agent_idx in range(param['n']):
-        x_mask[2 * agent_idx * param['num_dims'] : (2 * agent_idx + 1) * param['num_dims'] - 1] = 1
-        y_mask[2 * agent_idx * param['num_dims'] + 1 : (2 * agent_idx + 1) * param['num_dims']] = 1
+            if n_epi >= 2000:
+                torch.save(train['model'].state_dict(), f"saves/{score/params['print_interval']}-{n_epi}.save")
 
-    for episode in range(10):# save in saves:
-        model.load_state_dict(torch.load(save))
-        s = env.reset() + x_mask + y_mask
-        done = False
-
-        centroidx, centroidy = [], []
-        trajx, trajy = [], []
-        for i in range(600):
-            prob = model.pi(torch.from_numpy(s).float().to(device))
-            m = Categorical(prob)
-            a = m.sample().item()
-            trajx.append(1 * np.cos(i / (100/np.pi)))
-            trajy.append(1 * np.sin(i / (100/np.pi)))
-            s_prime = env.step(a) 
-
-            x, y = [], []
-            for agent_idx in range(param['num_birds']):
-                x.append(s_prime[2 * agent_idx * param['num_dims'] : (2 * agent_idx + 1) * param['num_dims'] - 1])
-                y.append(s_prime[2 * agent_idx * param['num_dims'] + 1 : (2 * agent_idx + 1) * param['num_dims']])
-
-            centroidx.append(np.mean(x))
-            centroidy.append(np.mean(y))
-
-            env.render((trajx[-200:], trajy[-200:]), (centroidx[-200:], centroidy[-200:]))
-
-            s = s_prime - trajx[-1] * x_mask - trajy[-1] * y_mask
-
-        score = 0
+            score = 0.0
 
     env.close()
 
 if __name__ == '__main__':
-    main()
+    train()

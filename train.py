@@ -72,6 +72,8 @@ def transform_state(x, i):
         x_transformed[2 * agent_idx * params['num_dims'] + 1 :
                 (2 * agent_idx + 1) * params['num_dims']] -= np.sin(idx)
 
+    x_transformed = np.concatenate([x_transformed, np.zeros(4)])
+
     return x_transformed
 
 def episode(train):
@@ -109,7 +111,7 @@ def train():
     train = {}
     train['env'] = gym.make(params['env_name'])
     train['env'].init(params)
-    train['model'] = PPO(params, train['env'].observation_space.shape[0]).to(params['device'])
+    train['model'] = PPO(params, 4 + train['env'].observation_space.shape[0]).to(params['device'])
 
     logger = Logger()
 
@@ -120,10 +122,14 @@ def train():
         logger.episode_score(ep_score, n_epi)
         score += ep_score
 
-        # torch.save(model.state_dict(), f"saves/{score/print_interval}-{n_epi}.save")
         if n_epi % params['print_interval'] == 0 and n_epi != 0:
             print(f"Episode #{n_epi:5d} | Avg Score : {score / params['print_interval']:2.2f}")
+
+            if n_epi >= 0:
+                logger.save_model(score/params['print_interval'], train['model'].state_dict(), n_epi)
+
             score = 0.0
+
 
         train['model'].train_net()
 
