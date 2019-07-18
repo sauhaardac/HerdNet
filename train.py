@@ -85,11 +85,11 @@ def episode(train):
     """
         
     episode_score = 0
-    x = transform_state(train['env'].reset())
+    x = transform_state(train['env'].reset(), 0)
 
-    for i in range(params['ep_len']):
+    for i in range(1, params['ep_len']):
         prob, m, u = run_network(train, x)
-        x_prime = transform_state(train['env'].step(u))
+        x_prime = transform_state(train['env'].step(u), i)
         reward = calculate_reward(x)  # custom reward function given state
         train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
         episode_score += reward
