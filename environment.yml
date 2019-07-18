@@ -5,5 +5,8 @@ dependencies:
  - pytorch
  - cudatoolkit=10.0
  - matplotlib
+ - tensorflow
  - pip:
     - gym
+    - tensorboardX
+    - crc32c

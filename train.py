@@ -1,82 +1,58 @@
-import gym
-import torch
-import torch.nn as nn
-import numpy as np
-import torch.nn.functional as F
-import torch.optim as optim
+from param import params
 import gym_boids
+import gym
+from net.ppo import PPO
 from torch.distributions import Categorical
-import sys
-import datetime
+import torch
+import numpy as np
 
-torch.set_default_tensor_type(torch.cuda.FloatTensor)
+def run_network(train, x):
+    prob = train['model'].pi(torch.from_numpy(x).float().to(params['device']))
+    m = Categorical(prob)
+    u = m.sample().item()
+    return prob, m, u
 
-#Hyperparameters
-learning_rate = 0.0005
-gamma         = 0.98
-lmbda         = 0.95
-eps_clip      = 0.1
-K_epoch       = 3
-T_horizon     = 20
+def calculate_reward(x):
+    sum_x = np.zeros(params['num_dims'])
+    for i in range(params['num_birds']):
+        sum_x += x[2 * i * params['num_dims'] : (2 * i + 1) * params['num_dims']]
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    reward = (2 - np.linalg.norm(sum_x/params['num_birds'])) / 2
 
-        
+    return reward
+
+def episode(train):
+    episode_score = 0
+    x = train['env'].reset()
+
+    for i in range(params['ep_len']):
+        prob, m, u = run_network(train, x)
+        x_prime = train['env'].step(u)  # propagate step through environment
+        reward = calculate_reward(x)  # custom reward function given state
+        train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
+        episode_score += reward
+        x = x_prime
+
+    return episode_score / params['ep_len']
+
 def main():
-    env = gym.make('boids-v0')
+    train = {}
+    train['env'] = gym.make(params['env_name'])
+    train['env'].init(params)
+    train['model'] = PPO(params, train['env'].observation_space.shape[0]).to(params['device'])
 
-    param = {'render' : True, 'num_birds' : 6, 'num_agents' : 1, 'num_dims' : 2, 'plim' : 1, 'vlim' : 1, 'min_dist_constraint' : 0.3,
-            'agentcolor' : 'blue', 'birdcolor' : 'green', 'r_comm' : 1., 'r_des' : 0.8, 'kx' : 2, 'kv' : 2,
-            'lambda_a' : 0.1, 'dt' : 0.05}
-
-    param['n'] = param['num_birds'] + param['num_agents']
-    param['a_u'] = 1.
-    param['ep_len'] = 250
-
-    env.init(param)
-
-    model = PPO(env.observation_space.shape[0]).to(device)
     score = 0.0
-    epi_score = 0.0
-    max_epi_score = 0.0
 
-    print_interval = 10
+    for n_epi in range(10**6):
+        score += episode(train)
 
-    for n_epi in range(10000):
-        done = False
-        x = env.reset()
-        for i in range(param['ep_len']):
-            prob = model.pi(torch.from_numpy(x).float().to(device))
-            m = Categorical(prob)
-            u = m.sample().item()
+        torch.save(model.state_dict(), f"saves/{score/print_interval}-{n_epi}.save")
 
-            x_prime = env.step(u)
-
-            if(n_epi > 1000):
-                env.render()
-
-            sum_x = np.zeros(param['num_dims'])
-            for i in range(param['num_birds']):
-                sum_x += x_prime[2 * i * param['num_dims'] : (2 * i + 1) * param['num_dims']]
-
-            reward = (2 - np.linalg.norm(sum_x/param['num_birds'])) / 2
-
-            score += reward
-            
-            model.put_data((x, u, reward, x_prime, prob[u].item(), False))
-
-            x = x_prime
-
-            if done:
-                break
-
-        if n_epi%print_interval==0 and n_epi!=0:
-            torch.save(model.state_dict(), f"saves/{score/print_interval}-{n_epi}.save")
-            print("# of episode :{}, avg score : {:.3f}".format(n_epi, score/(print_interval * param['ep_len'])))
-            env.save_epi(f"logs/episode-{n_epi}-score-{score/(print_interval * param['ep_len'])}.pkl")
+        if n_epi % params['print_interval'] == 0 and n_epi != 0:
+            print(f"Episode #{n_epi:5d} | Avg Score : {score / params['print_interval']:2.2f}")
             score = 0.0
 
-        model.train_net()
+        train['model'].train_net()
 
     env.close()
 
