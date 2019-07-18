@@ -63,14 +63,14 @@ def transform_state(x, i):
 
     x_transformed = x.copy()
 
-    for agent_idx in range(param['n']):
-        idx = i / (param['ep_len'] / (2 * np.pi))
+    for agent_idx in range(params['n']):
+        idx = i / (params['ep_len'] / (2 * np.pi))
 
-        x_transformed[2 * agent_idx * param['num_dims'] :
-                (2 * agent_idx + 1) * param['num_dims'] - 1] -= np.cos(idx)
+        x_transformed[2 * agent_idx * params['num_dims'] :
+                (2 * agent_idx + 1) * params['num_dims'] - 1] -= np.cos(idx)
 
-        x_transformed[2 * agent_idx * param['num_dims'] + 1 :
-                (2 * agent_idx + 1) * param['num_dims']] -= np.sin(idx)
+        x_transformed[2 * agent_idx * params['num_dims'] + 1 :
+                (2 * agent_idx + 1) * params['num_dims']] -= np.sin(idx)
 
     return x_transformed
 
