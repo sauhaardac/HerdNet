@@ -45,6 +45,35 @@ def calculate_reward(x):
 
     return reward
 
+def transform_state(x, i):
+    """ Transforms the state to make the training set more varied.
+
+    Shifts the position state in a circle so the agents are forced to
+    track a point rather than simply move towards a goal point. This
+    is a harder problem to learn.
+
+    Params:
+        x (np.array): current state
+        i (int): iteration # within the episode
+
+    Returns:
+        x_transformed (np.array): augmented/transformed state
+
+    """
+
+    x_transformed = x.copy()
+
+    for agent_idx in range(param['n']):
+        idx = i / (param['ep_len'] / (2 * np.pi))
+
+        x_transformed[2 * agent_idx * param['num_dims'] :
+                (2 * agent_idx + 1) * param['num_dims'] - 1] -= np.cos(idx)
+
+        x_transformed[2 * agent_idx * param['num_dims'] + 1 :
+                (2 * agent_idx + 1) * param['num_dims']] -= np.sin(idx)
+
+    return x_transformed
+
 def episode(train):
     """ Runs one episode of training
 
@@ -53,15 +82,14 @@ def episode(train):
 
     Returns:
         episode_score (float): average reward during the episode
-
     """
         
     episode_score = 0
-    x = train['env'].reset()
+    x = transform_state(train['env'].reset())
 
     for i in range(params['ep_len']):
         prob, m, u = run_network(train, x)
-        x_prime = train['env'].step(u)  # propagate step through environment
+        x_prime = transform_state(train['env'].step(u))
         reward = calculate_reward(x)  # custom reward function given state
         train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
         episode_score += reward
