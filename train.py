@@ -6,6 +6,7 @@ from torch.distributions import Categorical
 import torch
 import numpy as np
 from util import Logger
+import sys
 
 def run_network(train, x):
     """ Runs the network to determine action given current state
@@ -61,8 +62,8 @@ def transform_state(x, i):
 
     """
 
-    x_transformed = x.copy()
-
+    x_transformed = np.concatenate([x, np.zeros(4)])
+    
     for agent_idx in range(params['n']):
         idx = i / (params['ep_len'] / (2 * np.pi))
 
@@ -72,7 +73,10 @@ def transform_state(x, i):
         x_transformed[2 * agent_idx * params['num_dims'] + 1 :
                 (2 * agent_idx + 1) * params['num_dims']] -= np.sin(idx)
 
-    x_transformed = np.concatenate([x_transformed, np.zeros(4)])
+    x_transformed[-1] = -np.sin(idx)
+    x_transformed[-2] = np.cos(idx)
+    x_transformed[-3] = -np.cos(idx)
+    x_transformed[-4] = 0  # uneccessary for now
 
     return x_transformed
 
@@ -89,7 +93,7 @@ def episode(train):
     episode_score = 0
     x = transform_state(train['env'].reset(), 0)
 
-    for i in range(1, params['ep_len']):
+    for i in range(1, params['ep_len'] * 2):
         prob, m, u = run_network(train, x)
         x_prime = transform_state(train['env'].step(u), i)
         reward = calculate_reward(x)  # custom reward function given state
@@ -112,6 +116,9 @@ def train():
     train['env'] = gym.make(params['env_name'])
     train['env'].init(params)
     train['model'] = PPO(params, 4 + train['env'].observation_space.shape[0]).to(params['device'])
+
+    if params['transfer']:
+        train['model'].load_state_dict(torch.load(sys.argv[1]))
 
     logger = Logger()
 

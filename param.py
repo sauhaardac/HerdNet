@@ -7,6 +7,7 @@ params = {}
 params['print_interval'] = 10  # print every 10 episodes
 
 # Network training hyperparams
+params['transfer']  = True
 params['lr']        = 0.0005
 params['gamma']     = 0.98
 params['lmbda']     = 0.95
