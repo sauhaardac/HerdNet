@@ -45,7 +45,7 @@ def transform_state(x, i):
 
     """
 
-    x_transformed = np.concatenate([x, np.zeros(4)])
+    x_transformed = np.concatenate([x, np.zeros(3)])
     
     for agent_idx in range(params['n']):
         idx = i / (params['ep_len'] / (2 * np.pi))
@@ -59,7 +59,7 @@ def transform_state(x, i):
     x_transformed[-1] = -np.sin(idx)
     x_transformed[-2] = np.cos(idx)
     x_transformed[-3] = -np.cos(idx)
-    x_transformed[-4] = 0  # uneccessary for now
+    # x_transformed[-4] = 0  # uneccessary for now
 
     return x_transformed
 
@@ -112,7 +112,7 @@ def train():
     train = {}
     train['env'] = gym.make(params['env_name'])
     train['env'].init(params)
-    train['model'] = PPO(params, 4 + train['env'].observation_space.shape[0]).to(params['device'])
+    train['model'] = PPO(params, 3 + train['env'].observation_space.shape[0]).to(params['device'])
     train['model'].load_state_dict(torch.load(sys.argv[1]))
 
     # logger = Logger()

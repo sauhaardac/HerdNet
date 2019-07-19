@@ -1,6 +1,7 @@
 from param import params
 import gym_boids
-import gym from net.ppo import PPO
+import gym
+from net.ppo import PPO
 from torch.distributions import Categorical
 import torch
 import numpy as np
@@ -92,7 +93,7 @@ def episode(train):
     episode_score = 0
     x = transform_state(train['env'].reset(), 0)
 
-    for i in range(1, params['ep_len'] * 2):
+    for i in range(1, params['ep_len']):
         prob, m, u = run_network(train, x)
         x_prime = transform_state(train['env'].step(u), i)
         reward = calculate_reward(x)  # custom reward function given state
@@ -135,7 +136,6 @@ def train():
                 logger.save_model(score/params['print_interval'], train['model'].state_dict(), n_epi)
 
             score = 0.0
-
 
         train['model'].train_net()
 
