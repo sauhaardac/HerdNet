@@ -18,3 +18,13 @@ bash Anaconda3-2019.03-Linux-x86_64.sh
 conda env create -f environment.yml -n safetynet # may take some time
 conda activate safetynet
 ```
+5. Install the OpenAI Gym environment:
+```bash
+cd gym/
+pip install -e .
+```
+
+## Training Instructions
+```bash
+python train.py
+```

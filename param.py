@@ -1,5 +1,6 @@
 import argparse
 import torch
+import numpy as np
 
 params = {}
 
@@ -7,7 +8,7 @@ params = {}
 params['print_interval'] = 10  # print every 10 episodes
 
 # Network training hyperparams
-params['transfer']  = True
+params['transfer']  = False
 params['lr']        = 0.0005
 params['gamma']     = 0.98
 params['lmbda']     = 0.95
@@ -39,3 +40,11 @@ params['a_u'] = 1.
 # Training defaults
 torch.set_default_tensor_type(torch.cuda.FloatTensor)
 params['device'] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Reward function (extracted from Ben's code)
+params['P'] = np.array([[2.015151515151518, 1.0151515151515167, 0.005000000000000007, 0.0, 0.0, 0.0],
+                        [1.015151515151517, 2.025303030303032, 0.015151515151515162, 0.0, 0.0, 0.0],
+                        [0.005000000000000005, 0.015151515151515162, 0.005151515151515153, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 2.015151515151518, 1.0151515151515167, 0.005000000000000007],
+                        [0.0, 0.0, 0.0, 1.015151515151517, 2.025303030303032, 0.015151515151515162],
+                        [0.0, 0.0, 0.0, 0.005000000000000005, 0.015151515151515162, 0.005151515151515153]])

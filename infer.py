@@ -8,6 +8,8 @@ import numpy as np
 from util import Logger
 import sys
 
+params['render'] = True
+
 def run_network(train, x):
     """ Runs the network to determine action given current state
 
@@ -76,7 +78,7 @@ def episode(train):
 
     trajx, trajy, centroidx, centroidy = [], [], [], []
 
-    for i in range(2 * params['ep_len']):
+    for i in range(2000 * params['ep_len']):
         x = transform_state(x, i)
         prob, m, u = run_network(train, x)
         x_prime = train['env'].step(u)
