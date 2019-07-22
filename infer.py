@@ -45,7 +45,7 @@ def transform_state(x, i):
 
     """
 
-    x_transformed = np.concatenate([x, np.zeros(3)])
+    x_transformed = x.copy()
     
     for agent_idx in range(params['n']):
         idx = i / (params['ep_len'] / (2 * np.pi))
@@ -56,10 +56,11 @@ def transform_state(x, i):
         x_transformed[2 * agent_idx * params['num_dims'] + 1 :
                 (2 * agent_idx + 1) * params['num_dims']] -= np.sin(idx)
 
-    x_transformed[-1] = -np.sin(idx)
-    x_transformed[-2] = np.cos(idx)
-    x_transformed[-3] = -np.cos(idx)
-    # x_transformed[-4] = 0  # uneccessary for now
+        x_transformed[(2 * agent_idx + 1) * params['num_dims']:
+                2 * (agent_idx + 1) * params['num_dims'] - 1] -= -np.sin(idx)
+
+        x_transformed[(2 * agent_idx + 1) * params['num_dims'] + 1:
+                2 * (agent_idx + 1) * params['num_dims']] -= np.cos(idx)
 
     return x_transformed
 
@@ -74,14 +75,15 @@ def episode(train):
     """
         
     episode_score = 0
-    x = train['env'].reset()
+    x = transform_state(train['env'].reset(), 0)
 
     trajx, trajy, centroidx, centroidy = [], [], [], []
 
-    for i in range(2000 * params['ep_len']):
-        x = transform_state(x, i)
+    for i in range(1, params['ep_len']):
         prob, m, u = run_network(train, x)
-        x_prime = train['env'].step(u)
+        state, = train['env'].step(u)
+        x_prime = transform_state(state, i)
+        episode_score += calculate_reward(x_prime)
 
         trajx.append(np.cos(i / (params['ep_len']/(2 * np.pi))))
         trajy.append(np.sin(i / (params['ep_len']/(2 * np.pi))))
@@ -112,7 +114,7 @@ def train():
     train = {}
     train['env'] = gym.make(params['env_name'])
     train['env'].init(params)
-    train['model'] = PPO(params, 3 + train['env'].observation_space.shape[0]).to(params['device'])
+    train['model'] = PPO(params, train['env'].observation_space.shape[0]).to(params['device'])
     train['model'].load_state_dict(torch.load(sys.argv[1]))
 
     # logger = Logger()
@@ -124,13 +126,8 @@ def train():
         # logger.episode_score(ep_score, n_epi)
         score += ep_score
 
-        if n_epi % params['print_interval'] == 0 and n_epi != 0:
-            print(f"Episode #{n_epi:5d} | Avg Score : {score / params['print_interval']:2.2f}")
-
-            if n_epi >= 2000:
-                torch.save(train['model'].state_dict(), f"saves/{score/params['print_interval']}-{n_epi}.save")
-
-            score = 0.0
+        print(f"Episode #{n_epi:5d} | Avg Score : {score / params['print_interval']:2.2f}")
+        score = 0.0
 
     env.close()
 

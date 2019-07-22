@@ -26,15 +26,22 @@ class BoidsEnv(gym.Env):
         self.observation_space = spaces.Box(-5, 5, self.x[-1].shape)
 
         if param['render']:
-            self.plot = init_tracking_plot(param)
+            self.plot = init_plot(param)
 
     def step(self, u):
         """Simulate step in environment"""
 
         dxdt = get_f(self.param, self.x[-1]) + get_g(self.param, self.x[-1], u)
+
+        sum_a = np.zeros(self.param['num_dims'])
+        for i in range(self.param['num_birds']):
+            sum_a += dxdt[(2 * i + 1) * self.param['num_dims'] : 2 * (i + 1) * self.param['num_dims']]
+
+        sum_a /= self.param['num_birds'] / self.param['dt']
+
         self.x.append(self.x[-1] + dxdt * self.param['dt'])
 
-        return self.x[-1]
+        return self.x[-1], sum_a
 
     def save_epi(self, path):
         with open(path, 'wb') as handle:
@@ -113,8 +120,8 @@ def init_plot(param):
     fig = plt.figure(figsize=(10, 10), dpi=80)
     plt.ylim([-2, 2])
     plt.xlim([-2, 2])
-    boidplot = plt.quiver([], [], [], [], color=param['birdcolor'])
-    agentplot = plt.quiver([], [], [], [], color=param['agentcolor'])
+    boidplot = plt.quiver([], [], [], [], color=param['birdcolor']);
+    agentplot = plt.quiver([], [], [], [], color=param['agentcolor']);
     theta = np.linspace(-np.pi, np.pi, 200)
     circleplot, = plt.plot(np.sin(theta), np.cos(theta))
 

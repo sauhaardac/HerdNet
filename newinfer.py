@@ -30,19 +30,7 @@ def run_network(train, x):
     u = m.sample().item()
     return prob, m, u
 
-def permute_eta(eta):
-	perm_mat = np.zeros((len(x), len(x)))
-	gamma = 3 # relative degree
-
-	for dim_idx in range(2):
-		row_idx = dim_idx * gamma
-		for gamma_idx in range(gamma):
-			col_idx = gamma_idx * 2 + dim_idx
-			perm_mat[row_idx, col_idx] = 1
-			row_idx += 1
-	return np.matmul(perm_mat, eta)
-
-def calculate_reward(x, acc):
+def calculate_reward(x):
     """ Calculates the reward function i.e. how good is the current state
 
     Parameters:
@@ -60,14 +48,8 @@ def calculate_reward(x, acc):
     sum_v = np.zeros(params['num_dims'])
     for i in range(params['num_birds']):
         sum_v += x[(2 * i + 1) * params['num_dims'] : 2 * (i + 1) * params['num_dims']]
-    
-    eta = np.array([(sum_x/params['num_birds'])[0],
-                   (sum_x/params['num_birds'])[1],
-                   (sum_v/params['num_birds'])[0],
-                   (sum_v/params['num_birds'])[1],
-                   acc[0], acc[1]])
 
-    reward = 1 - np.matmul(np.matmul(eta.T , params['P']), eta)/100
+    reward = (2 - 0.75 * np.linalg.norm(sum_x/params['num_birds']) - 0.25 * np.linalg.norm(sum_v/params['num_birds'])) / 2
 
     return reward
 
@@ -82,21 +64,32 @@ def episode(train, ep_num):
     """
         
     episode_score = 0
+    x = transform_state(train['env'].reset(), 0)
 
-    my_i = np.random.uniform(low=0.0, high=2*np.pi)
-    goal = [np.cos(my_i), np.sin(my_i)]
-
-    x = transform_state(train['env'].reset(), goal)
+    trajx, trajy, centroidx, centroidy = [], [], [], []
 
     for i in range(1, params['ep_len']):
         prob, m, u = run_network(train, x)
-        step, acc = train['env'].step(u)
-        x_prime = transform_state(step, goal)
+        x_prime,_ = train['env'].step(u)
 
-        train['env'].render()
+        tempx, tempy = [], []
+        for agent_idx in range(params['num_birds']):
+            tempx.append(x_prime[2 * agent_idx * params['num_dims'] : (2 * agent_idx + 1) * params['num_dims'] - 1])
+            tempy.append(x_prime[2 * agent_idx * params['num_dims'] + 1 : (2 * agent_idx + 1) * params['num_dims']])
 
-        reward = calculate_reward(x, acc)  # custom reward function given state
-        train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
+        x_prime = transform_state(x_prime, i)
+
+        trajx.append(np.cos(i / (params['ep_len']/(2 * np.pi))))
+        trajy.append(np.sin(i / (params['ep_len']/(2 * np.pi))))
+
+
+        centroidx.append(np.mean(tempx))
+        centroidy.append(np.mean(tempy))
+
+        train['env'].render((trajx[-200:], trajy[-200:]), (centroidx[-200:], centroidy[-200:]))
+
+        reward = calculate_reward(x)  # custom reward function given state
+        print(reward)
         episode_score += reward
         x = x_prime
 
@@ -104,14 +97,13 @@ def episode(train, ep_num):
 
     return episode_score
 
-def transform_state(x, goal):
+def transform_state(x, i):
     """ Transforms the state to make the training set more varied.
 
     Shifts the position state in a circle so the agents are forced to
     track a point rather than simply move towards a goal point. This
     is a harder problem to learn.
-
-    Params:
+Params:
         x (np.array): current state
         i (int): iteration # within the episode
 
@@ -123,11 +115,19 @@ def transform_state(x, goal):
     x_transformed = x.copy()
     
     # for agent_idx in range(params['n']):
+    #     idx = i / (params['ep_len'] / (2 * np.pi))
+
     #     x_transformed[2 * agent_idx * params['num_dims'] :
-    #             (2 * agent_idx + 1) * params['num_dims'] - 1] -= goal[0]
+    #             (2 * agent_idx + 1) * params['num_dims'] - 1] -= np.cos(idx)
 
     #     x_transformed[2 * agent_idx * params['num_dims'] + 1 :
-    #             (2 * agent_idx + 1) * params['num_dims']] -= goal[1]
+    #             (2 * agent_idx + 1) * params['num_dims']] -= np.sin(idx)
+
+    #     x_transformed[(2 * agent_idx + 1) * params['num_dims']:
+    #             2 * (agent_idx + 1) * params['num_dims'] - 1] -= -np.sin(idx)
+
+    #     x_transformed[(2 * agent_idx + 1) * params['num_dims'] + 1:
+    #             2 * (agent_idx + 1) * params['num_dims']] -= np.cos(idx)
 
     return x_transformed
 
@@ -143,27 +143,20 @@ def train():
     train['env'].init(params)
     train['model'] = PPO(params, train['env'].observation_space.shape[0]).to(params['device'])
 
-    if params['transfer']:
-        train['model'].load_state_dict(torch.load(sys.argv[1]))
+    train['model'].load_state_dict(torch.load(sys.argv[1]))
 
-    logger = Logger()
+    # logger = Logger()
 
     score = 0.0
 
     for n_epi in range(10**6):
         ep_score = episode(train, n_epi)
-        logger.episode_score(ep_score, n_epi)
+        # logger.episode_score(ep_score, n_epi)
         score += ep_score
 
-        if n_epi % params['print_interval'] == 0 and n_epi != 0:
-            print(f"Episode #{n_epi:5d} | Avg Score : {score / params['print_interval']:2.2f}")
+        print(f"Episode #{n_epi:5d} | Avg Score : {score:2.2f}")
 
-            if n_epi >= 0:
-                logger.save_model(score/params['print_interval'], train['model'].state_dict(), n_epi)
-
-            score = 0.0
-
-        train['model'].train_net()
+        score = 0.0
 
     env.close()
 
