@@ -9,7 +9,7 @@ from util import Logger
 import sys
 import random
 
-params['render'] = True
+# params['render'] = True
 
 def run_network(train, x):
     """ Runs the network to determine action given current state
@@ -19,10 +19,11 @@ def run_network(train, x):
         x (np.array): current state to input into neural network
 
     Returns:
-        prob (torch.FloatTensor): output of the network, raw softmax distribution
-        m (torch.FloatTensor): categorical distribution of output
-        u (torch.FloatTensor): actual action selected by the network
+        (tuple): tuple containing:
 
+            prob (torch.FloatTensor): output of the network, raw softmax distribution
+            m (torch.FloatTensor): categorical distribution of output
+            u (torch.FloatTensor): actual action selected by the network
     """
 
     prob = train['model'].pi(torch.from_numpy(x).float().to(params['device']))
@@ -67,9 +68,7 @@ def calculate_reward(x, acc):
                    (sum_v/params['num_birds'])[1],
                    acc[0], acc[1]])
 
-    reward = 1 - np.matmul(np.matmul(eta.T , params['P']), eta)/100
-
-    return reward
+    return (5 - 2 * np.linalg.norm(sum_x/params['num_birds']) - 0.5 * np.linalg.norm(sum_v/params['num_birds']) - 0.5 * np.linalg.norm(acc))/5
 
 def episode(train, ep_num):
     """ Runs one episode of training
@@ -93,7 +92,8 @@ def episode(train, ep_num):
         step, acc = train['env'].step(u)
         x_prime = transform_state(step, goal)
 
-        train['env'].render()
+        # if ep_num > 1000:
+        #     train['env'].render()
 
         reward = calculate_reward(x, acc)  # custom reward function given state
         train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
@@ -122,12 +122,12 @@ def transform_state(x, goal):
 
     x_transformed = x.copy()
     
-    # for agent_idx in range(params['n']):
-    #     x_transformed[2 * agent_idx * params['num_dims'] :
-    #             (2 * agent_idx + 1) * params['num_dims'] - 1] -= goal[0]
+    for agent_idx in range(params['n']):
+        x_transformed[2 * agent_idx * params['num_dims'] :
+                (2 * agent_idx + 1) * params['num_dims'] - 1] -= goal[0]
 
-    #     x_transformed[2 * agent_idx * params['num_dims'] + 1 :
-    #             (2 * agent_idx + 1) * params['num_dims']] -= goal[1]
+        x_transformed[2 * agent_idx * params['num_dims'] + 1 :
+                (2 * agent_idx + 1) * params['num_dims']] -= goal[1]
 
     return x_transformed
 

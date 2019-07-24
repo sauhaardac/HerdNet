@@ -5,16 +5,15 @@ from net.ppo import PPO
 from torch.distributions import Categorical
 import torch
 import numpy as np
-from util import Logger
+import util
 import sys
+import plot
 
-params['render'] = True
-
-def run_network(train, x):
+def run_network(infer, x):
     """ Runs the network to determine action given current state
 
     Parameters:
-        train (dict): dictionary of training variables
+        infer (dict): dictionary of infering variables
         x (np.array): current state to input into neural network
 
     Returns:
@@ -24,13 +23,13 @@ def run_network(train, x):
 
     """
 
-    prob = train['model'].pi(torch.from_numpy(x).float().to(params['device']))
+    prob = infer['model'].pi(torch.from_numpy(x).float().to(params['device']))
     m = Categorical(prob)
     u = m.sample().item()
     return prob, m, u
 
 def transform_state(x, i):
-    """ Transforms the state to make the training set more varied.
+    """ Transforms the state to make the infering set more varied.
 
     Shifts the position state in a circle so the agents are forced to
     track a point rather than simply move towards a goal point. This
@@ -48,88 +47,50 @@ def transform_state(x, i):
     x_transformed = x.copy()
     
     for agent_idx in range(params['n']):
-        idx = i / (params['ep_len'] / (2 * np.pi))
-
         x_transformed[2 * agent_idx * params['num_dims'] :
-                (2 * agent_idx + 1) * params['num_dims'] - 1] -= np.cos(idx)
+                (2 * agent_idx + 1) * params['num_dims'] - 1] -= params['pd'][i, 0]
 
         x_transformed[2 * agent_idx * params['num_dims'] + 1 :
-                (2 * agent_idx + 1) * params['num_dims']] -= np.sin(idx)
+                (2 * agent_idx + 1) * params['num_dims']] -= params['pd'][i, 1]
 
         x_transformed[(2 * agent_idx + 1) * params['num_dims']:
-                2 * (agent_idx + 1) * params['num_dims'] - 1] -= -np.sin(idx)
+                2 * (agent_idx + 1) * params['num_dims'] - 1] -= params['vd'][i, 0]
 
         x_transformed[(2 * agent_idx + 1) * params['num_dims'] + 1:
-                2 * (agent_idx + 1) * params['num_dims']] -= np.cos(idx)
+                2 * (agent_idx + 1) * params['num_dims']] -= params['vd'][i, 1]
 
     return x_transformed
 
-def episode(train):
-    """ Runs one episode of training
-
-    Parameters:
-        train (dict): dictionary of training variables
-
-    Returns:
-        episode_score (float): average reward during the episode
-    """
-        
-    episode_score = 0
-    x = transform_state(train['env'].reset(), 0)
-
-    trajx, trajy, centroidx, centroidy = [], [], [], []
-
-    for i in range(1, params['ep_len']):
-        prob, m, u = run_network(train, x)
-        state, = train['env'].step(u)
-        x_prime = transform_state(state, i)
-        episode_score += calculate_reward(x_prime)
-
-        trajx.append(np.cos(i / (params['ep_len']/(2 * np.pi))))
-        trajy.append(np.sin(i / (params['ep_len']/(2 * np.pi))))
-
-        x, y = [], []
-        for agent_idx in range(params['num_birds']):
-            x.append(x_prime[2 * agent_idx * params['num_dims'] : (2 * agent_idx + 1) * params['num_dims'] - 1])
-            y.append(x_prime[2 * agent_idx * params['num_dims'] + 1 : (2 * agent_idx + 1) * params['num_dims']])
-
-        centroidx.append(np.mean(x))
-        centroidy.append(np.mean(y))
-
-        train['env'].render((trajx[-200:], trajy[-200:]), (centroidx[-200:], centroidy[-200:]))
-
-        x = x_prime
-
-    episode_score /= params['ep_len']
-
-    return episode_score
-
-def train():
+def infer(path, label):
     """ Trains an RL model.
 
     First initializes environment, logging, and machine learning model. Then iterates
-    through epochs of training and prints score intermittently.
+    through epochs of infering and prints score intermittently.
     """
 
-    train = {}
-    train['env'] = gym.make(params['env_name'])
-    train['env'].init(params)
-    train['model'] = PPO(params, train['env'].observation_space.shape[0]).to(params['device'])
-    train['model'].load_state_dict(torch.load(sys.argv[1]))
+    util.set_xd()
 
-    # logger = Logger()
+    infer = {}
+    infer['env'] = gym.make(params['env_name'])
+    infer['env'].init(params)
+    infer['model'] = PPO(params, infer['env'].observation_space.shape[0]).to(params['device'])
+    infer['model'].load_state_dict(torch.load(path))
 
-    score = 0.0
+    x = transform_state(infer['env'].reset(), 0)
 
-    for n_epi in range(10**6):
-        ep_score = episode(train)
-        # logger.episode_score(ep_score, n_epi)
-        score += ep_score
+    for i in range(1, params['nt']):
+        prob, m, u = run_network(infer, x)
+        state,_ = infer['env'].step(u)
+        x_prime = transform_state(state, i)
+        x = x_prime
 
-        print(f"Episode #{n_epi:5d} | Avg Score : {score / params['print_interval']:2.2f}")
-        score = 0.0
-
-    env.close()
+    x = np.array(infer['env'].get_x())
+    plot.plot_SS(x, params['T'], title=f"State Space after {label}")
+    plot.plot_error(x, params['T'], title=f"Errors after {label}")
 
 if __name__ == '__main__':
-    train()
+    paths = ['0.24-250.save', '0.65-500.save', '0.82-1000.save', '0.87-2000.save', '0.89-3010.save', '0.89-4020.save','0.90-5020.save', '0.92-5910.save']
+    labels = ['250 Episodes', '500 Episodes', '1000 Episodes', '2000 Episodes', '3000 Episodes', '4000 Episodes', '5000 Episodes', '6000 Episodes']
+    for i in range(len(paths)):
+        infer(f'saves/pweighting/{paths[i]}', labels[i])
+    plot.save_figs()

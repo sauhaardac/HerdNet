@@ -26,7 +26,7 @@ class BoidsEnv(gym.Env):
         self.observation_space = spaces.Box(-5, 5, self.x[-1].shape)
 
         if param['render']:
-            self.plot = init_plot(param)
+            self.plot = init_tracking_plot(param)
 
     def step(self, u):
         """Simulate step in environment"""
@@ -42,6 +42,9 @@ class BoidsEnv(gym.Env):
         self.x.append(self.x[-1] + dxdt * self.param['dt'])
 
         return self.x[-1], sum_a
+
+    def get_x(self):
+        return self.x
 
     def save_epi(self, path):
         with open(path, 'wb') as handle:
@@ -234,6 +237,7 @@ def plot_boids(param, x, plot):
 
     agentplot.set_offsets(np.array([plotx, ploty]).T)
     agentplot.set_UVC(plotu, plotv)
+
 
     fig.canvas.draw()
     fig.canvas.flush_events()
