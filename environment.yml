@@ -10,3 +10,6 @@ dependencies:
     - gym
     - tensorboardX
     - crc32c
+    - sphinx
+    - recommonmark
+    - sphinx_rtd_theme

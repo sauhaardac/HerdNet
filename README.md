@@ -1,4 +1,4 @@
-# SafetyNet
+# Herding with Reinforcement Learning
 
 Optimal Control Coupled Reinforcement Learning for Swarm Control
 

@@ -32,9 +32,19 @@ class BoidsEnv(gym.Env):
         """Simulate step in environment"""
 
         dxdt = get_f(self.param, self.x[-1]) + get_g(self.param, self.x[-1], u)
+
+        sum_a = np.zeros(self.param['num_dims'])
+        for i in range(self.param['num_birds']):
+            sum_a += dxdt[(2 * i + 1) * self.param['num_dims'] : 2 * (i + 1) * self.param['num_dims']]
+
+        sum_a /= self.param['num_birds'] / self.param['dt']
+
         self.x.append(self.x[-1] + dxdt * self.param['dt'])
 
-        return self.x[-1]
+        return self.x[-1], sum_a
+
+    def get_x(self):
+        return self.x
 
     def save_epi(self, path):
         with open(path, 'wb') as handle:
@@ -113,8 +123,8 @@ def init_plot(param):
     fig = plt.figure(figsize=(10, 10), dpi=80)
     plt.ylim([-2, 2])
     plt.xlim([-2, 2])
-    boidplot = plt.quiver([], [], [], [], color=param['birdcolor'])
-    agentplot = plt.quiver([], [], [], [], color=param['agentcolor'])
+    boidplot = plt.quiver([], [], [], [], color=param['birdcolor']);
+    agentplot = plt.quiver([], [], [], [], color=param['agentcolor']);
     theta = np.linspace(-np.pi, np.pi, 200)
     circleplot, = plt.plot(np.sin(theta), np.cos(theta))
 
@@ -227,6 +237,7 @@ def plot_boids(param, x, plot):
 
     agentplot.set_offsets(np.array([plotx, ploty]).T)
     agentplot.set_UVC(plotu, plotv)
+
 
     fig.canvas.draw()
     fig.canvas.flush_events()
