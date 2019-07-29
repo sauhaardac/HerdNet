@@ -22,7 +22,7 @@ class BoidsEnv(gym.Env):
         """Real constructor with params input"""
 
         self.param = param 
-        self.x = [init_state(param)]
+        self.x = [pickle.load(open('/home/sauhaarda/x0.pkl','rb'))[:,0]]
         self.observation_space = spaces.Box(-5, 5, self.x[-1].shape)
 
         if param['render']:
@@ -53,7 +53,7 @@ class BoidsEnv(gym.Env):
     def reset(self):
         """Reset enviornment"""
 
-        self.x = [init_state(self.param)]
+        self.x = [pickle.load(open('/home/sauhaarda/x0.pkl','rb'))[:,0]]
         return self.x[-1]
     
     def render(self, goal = None, centroid = None):
@@ -96,8 +96,8 @@ def init_state(param):
 
     x0 = np.zeros(2 * param['n'] * param['num_dims'])
 
-    min_dist = 0
-    while min_dist < param['min_dist_constraint']:
+    min_dist = np.inf
+    while min_dist > param['min_dist_constraint']:
         for i in range(param['num_birds']):
             p_i = rand(param['num_dims']) * param['plim'] - param['plim'] / 2
             v_i = rand(param['num_dims']) * param['vlim'] - param['vlim'] / 2

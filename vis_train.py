@@ -4,7 +4,6 @@ import gym
 from net.ppo import PPO
 from torch.distributions import Categorical
 import torch
-import matplotlib.pyplot as plt
 import numpy as np
 import util
 import sys
@@ -29,8 +28,8 @@ def run_network(infer, x):
     u = m.sample().item()
     return prob, m, u
 
-def transform_state(x, i):
-    """ Transforms the state to make the infering set more varied.
+def transform_state(x, goal):
+    """ Transforms the state to make the training set more varied.
 
     Shifts the position state in a circle so the agents are forced to
     track a point rather than simply move towards a goal point. This
@@ -49,16 +48,10 @@ def transform_state(x, i):
     
     for agent_idx in range(params['n']):
         x_transformed[2 * agent_idx * params['num_dims'] :
-                (2 * agent_idx + 1) * params['num_dims'] - 1] -= params['pd'][i, 0]
+                (2 * agent_idx + 1) * params['num_dims'] - 1] -= goal[0]
 
         x_transformed[2 * agent_idx * params['num_dims'] + 1 :
-                (2 * agent_idx + 1) * params['num_dims']] -= params['pd'][i, 1]
-
-        x_transformed[(2 * agent_idx + 1) * params['num_dims']:
-                2 * (agent_idx + 1) * params['num_dims'] - 1] -= params['vd'][i, 0]
-
-        x_transformed[(2 * agent_idx + 1) * params['num_dims'] + 1:
-                2 * (agent_idx + 1) * params['num_dims']] -= params['vd'][i, 1]
+                (2 * agent_idx + 1) * params['num_dims']] -= goal[1]
 
     return x_transformed
 
@@ -76,21 +69,28 @@ def infer(path, label):
     infer['env'].init(params)
     infer['model'] = PPO(params, infer['env'].observation_space.shape[0]).to(params['device'])
     infer['model'].load_state_dict(torch.load(path))
-
-    x = transform_state(infer['env'].reset(), 0)
+    
+    my_i = np.random.uniform(low=0.0, high=2*np.pi)
+    goal = [np.cos(my_i), np.sin(my_i)]
+    x = transform_state(infer['env'].reset(), goal)
 
     for i in range(1, params['nt']):
         prob, m, u = run_network(infer, x)
         state,_ = infer['env'].step(u)
-        x_prime = transform_state(state, i)
+        x_prime = transform_state(state, goal)
         x = x_prime
 
     x = np.array(infer['env'].get_x())
-    plot.plot_lyap(x, params['T'])
+    plot.plot_SS_gif(x, params['T'], goal, title=f"State Space after {label}")
+    
+    # plot.plot_error(x, params['T'], title=f"Errors after {label}")
+    # plot.plot_lyap(x, params['T'], title=f"Lyap after {label}")
 
 if __name__ == '__main__':
+    paths = ['0.24-250.save', '0.65-500.save', '0.82-1000.save', '0.87-2000.save', '0.89-3010.save', '0.89-4020.save','0.90-5020.save', '0.92-5910.save']
+    labels = ['250 Episodes', '500 Episodes', '1000 Episodes', '2000 Episodes', '3000 Episodes', '4000 Episodes', '5000 Episodes', '6000 Episodes']
     paths = ['0.89-3540.save']
     labels = ['3540 Episodes Lyapunov Reward']
     for i in range(len(paths)):
         infer(f'saves/lyap_test5/{paths[i]}', labels[i])
-    plt.savefig('fig.svg')
+    plot.save_figs()

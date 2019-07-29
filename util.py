@@ -4,6 +4,18 @@ import torch
 from param import params
 import numpy as np
 
+def permute_eta(eta):
+	perm_mat = np.zeros((len(eta), len(eta)))
+	gamma = 3 # relative degree
+
+	for dim_idx in range(2):
+		row_idx = dim_idx * gamma
+		for gamma_idx in range(gamma):
+			col_idx = gamma_idx * 2 + dim_idx
+			perm_mat[row_idx, col_idx] = 1
+			row_idx += 1
+	return np.matmul(perm_mat, eta)
+
 def get_P(X, i):
     """ Get position of agent i for all time
 

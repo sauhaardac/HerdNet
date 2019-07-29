@@ -48,7 +48,7 @@ params['plim'] = 1
 params['vlim'] = 1
 params['min_dist_constraint'] = 0.3
 params['r_comm'] = 1.
-params['r_des'] = 0.8
+params['r_des'] = 0.8 
 params['kx'] = 2
 params['kv'] = 2
 params['lambda_a'] = 0.1
@@ -58,3 +58,11 @@ params['a_u'] = 1.
 # Training defaults
 torch.set_default_tensor_type(torch.cuda.FloatTensor)
 params['device'] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Lyapunov function
+params['P'] = np.array([[2.015151515151518, 1.0151515151515167, 0.005000000000000007, 0.0, 0.0, 0.0],
+                        [1.015151515151517, 2.025303030303032, 0.015151515151515162, 0.0, 0.0, 0.0],
+                        [0.005000000000000005, 0.015151515151515162, 0.005151515151515153, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 2.015151515151518, 1.0151515151515167, 0.005000000000000007],
+                        [0.0, 0.0, 0.0, 1.015151515151517, 2.025303030303032, 0.015151515151515162],
+                        [0.0, 0.0, 0.0, 0.005000000000000005, 0.015151515151515162, 0.005151515151515153]])

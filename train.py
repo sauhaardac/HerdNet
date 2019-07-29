@@ -32,7 +32,7 @@ def run_network(train, x):
     return prob, m, u
 
 def permute_eta(eta):
-	perm_mat = np.zeros((len(x), len(x)))
+	perm_mat = np.zeros((len(eta), len(eta)))
 	gamma = 3 # relative degree
 
 	for dim_idx in range(2):
@@ -62,13 +62,15 @@ def calculate_reward(x, acc):
     for i in range(params['num_birds']):
         sum_v += x[(2 * i + 1) * params['num_dims'] : 2 * (i + 1) * params['num_dims']]
     
-    eta = np.array([(sum_x/params['num_birds'])[0],
+    eta = permute_eta(np.array([(sum_x/params['num_birds'])[0],
                    (sum_x/params['num_birds'])[1],
                    (sum_v/params['num_birds'])[0],
                    (sum_v/params['num_birds'])[1],
-                   acc[0], acc[1]])
+                   acc[0], acc[1]]))
 
-    return (5 - 2 * np.linalg.norm(sum_x/params['num_birds']) - 0.5 * np.linalg.norm(sum_v/params['num_birds']) - 0.5 * np.linalg.norm(acc))/5
+    V = np.matmul(np.matmul(eta.T, params['P']), eta)
+
+    return 1 - np.clip(np.power(V, 1/3), 0, 200) / 3
 
 def episode(train, ep_num):
     """ Runs one episode of training
