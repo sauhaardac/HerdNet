@@ -46,19 +46,6 @@ def transform_state(x, i):
 
     x_transformed = x.copy()
     
-    for agent_idx in range(params['n']):
-        x_transformed[2 * agent_idx * params['num_dims'] :
-                (2 * agent_idx + 1) * params['num_dims'] - 1] -= params['pd'][i, 0]
-
-        x_transformed[2 * agent_idx * params['num_dims'] + 1 :
-                (2 * agent_idx + 1) * params['num_dims']] -= params['pd'][i, 1]
-
-        x_transformed[(2 * agent_idx + 1) * params['num_dims']:
-                2 * (agent_idx + 1) * params['num_dims'] - 1] -= params['vd'][i, 0]
-
-        x_transformed[(2 * agent_idx + 1) * params['num_dims'] + 1:
-                2 * (agent_idx + 1) * params['num_dims']] -= params['vd'][i, 1]
-
     return x_transformed
 
 def infer(path, label):
@@ -86,11 +73,9 @@ def infer(path, label):
 
     x = np.array(infer['env'].get_x())
     plot.plot_SS(x, params['T'], title=f"State Space after {label}")
-    plot.plot_error(x, params['T'], title=f"Errors after {label}")
 
 if __name__ == '__main__':
-    paths = ['0.24-250.save', '0.65-500.save', '0.82-1000.save', '0.87-2000.save', '0.89-3010.save', '0.89-4020.save','0.90-5020.save', '0.92-5910.save']
-    labels = ['250 Episodes', '500 Episodes', '1000 Episodes', '2000 Episodes', '3000 Episodes', '4000 Episodes', '5000 Episodes', '6000 Episodes']
+    paths = ['0.76-2720.save']
     for i in range(len(paths)):
-        infer(f'saves/pweighting/{paths[i]}', labels[i])
+        infer(f'saves/maxr/{paths[i]}', 'Training')
     plot.save_figs()
