@@ -7,6 +7,7 @@ from torch.distributions import Categorical
 import torch
 import numpy as np
 from util import Logger
+import util
 import sys
 import random
 
@@ -56,11 +57,11 @@ def calculate_reward(x, acc):
         sum_v += x[(2 * i + 1) * params['num_dims']: 2 * (i + 1)
                    * params['num_dims']]
 
-    eta = permute_eta(np.array([(sum_x/params['num_birds'])[0],
-                                (sum_x/params['num_birds'])[1],
-                                (sum_v/params['num_birds'])[0],
-                                (sum_v/params['num_birds'])[1],
-                                acc[0], acc[1]]))
+    eta = util.permute_eta(np.array([(sum_x/params['num_birds'])[0],
+                                     (sum_x/params['num_birds'])[1],
+                                     (sum_v/params['num_birds'])[0],
+                                     (sum_v/params['num_birds'])[1],
+                                     acc[0], acc[1]]))
 
     V = np.matmul(np.matmul(eta.T, params['P']), eta)
 
