@@ -9,6 +9,7 @@ import util
 import sys
 import plot
 
+
 def run_network(infer, x):
     """ Runs the network to determine action given current state
 
@@ -17,7 +18,7 @@ def run_network(infer, x):
         x (np.array): current state to input into neural network
 
     Returns:
-        prob (torch.FloatTensor): output of the network, raw softmax distribution
+        prob (torch.FloatTensor): output of the network
         m (torch.FloatTensor): categorical distribution of output
         u (torch.FloatTensor): actual action selected by the network
 
@@ -27,6 +28,7 @@ def run_network(infer, x):
     m = Categorical(prob)
     u = m.sample().item()
     return prob, m, u
+
 
 def transform_state(x, i):
     """ Transforms the state to make the infering set more varied.
@@ -44,9 +46,8 @@ def transform_state(x, i):
 
     """
 
-    x_transformed = x.copy()
-    
-    return x_transformed
+    return x
+
 
 def infer(path, label):
     """ Trains an RL model.
@@ -60,19 +61,21 @@ def infer(path, label):
     infer = {}
     infer['env'] = gym.make(params['env_name'])
     infer['env'].init(params)
-    infer['model'] = PPO(params, infer['env'].observation_space.shape[0]).to(params['device'])
+    infer['model'] = PPO(
+        params, infer['env'].observation_space.shape[0]).to(params['device'])
     infer['model'].load_state_dict(torch.load(path))
 
     x = transform_state(infer['env'].reset(), 0)
 
     for i in range(1, params['nt']):
         prob, m, u = run_network(infer, x)
-        state,_ = infer['env'].step(u)
+        state, _ = infer['env'].step(u)
         x_prime = transform_state(state, i)
         x = x_prime
 
     x = np.array(infer['env'].get_x())
     plot.plot_SS(x, params['T'], title=f"State Space after {label}")
+
 
 if __name__ == '__main__':
     paths = ['0.76-2720.save']
