@@ -9,6 +9,7 @@ import util
 import sys
 import plot
 
+
 def run_network(infer, x):
     """ Runs the network to determine action given current state
 
@@ -17,7 +18,7 @@ def run_network(infer, x):
         x (np.array): current state to input into neural network
 
     Returns:
-        prob (torch.FloatTensor): output of the network, raw softmax distribution
+        prob (torch.FloatTensor): output of the network
         m (torch.FloatTensor): categorical distribution of output
         u (torch.FloatTensor): actual action selected by the network
 
@@ -27,6 +28,7 @@ def run_network(infer, x):
     m = Categorical(prob)
     u = m.sample().item()
     return prob, m, u
+
 
 def transform_state(x, i):
     """ Transforms the state to make the infering set more varied.
@@ -45,21 +47,32 @@ def transform_state(x, i):
     """
 
     x_transformed = x.copy()
-    
+
     for agent_idx in range(params['n']):
-        x_transformed[2 * agent_idx * params['num_dims'] :
-                (2 * agent_idx + 1) * params['num_dims'] - 1] -= params['pd'][i, 0]
+        x_transformed[2 *
+                      agent_idx *
+                      params['num_dims']: (2 *
+                                           agent_idx +
+                                           1) *
+                      params['num_dims'] -
+                      1] -= params['pd'][i, 0]
 
-        x_transformed[2 * agent_idx * params['num_dims'] + 1 :
-                (2 * agent_idx + 1) * params['num_dims']] -= params['pd'][i, 1]
+        x_transformed[2 *
+                      agent_idx *
+                      params['num_dims'] +
+                      1: (2 *
+                          agent_idx +
+                          1) *
+                      params['num_dims']] -= params['pd'][i, 1]
 
-        x_transformed[(2 * agent_idx + 1) * params['num_dims']:
-                2 * (agent_idx + 1) * params['num_dims'] - 1] -= params['vd'][i, 0]
+        x_transformed[(2 * agent_idx + 1) * params['num_dims']: 2 *
+                      (agent_idx + 1) * params['num_dims'] - 1] -= params['vd'][i, 0]
 
-        x_transformed[(2 * agent_idx + 1) * params['num_dims'] + 1:
-                2 * (agent_idx + 1) * params['num_dims']] -= params['vd'][i, 1]
+        x_transformed[(2 * agent_idx + 1) * params['num_dims'] + 1: 2 *
+                      (agent_idx + 1) * params['num_dims']] -= params['vd'][i, 1]
 
     return x_transformed
+
 
 def infer(path, label):
     """ Trains an RL model.
@@ -73,14 +86,15 @@ def infer(path, label):
     infer = {}
     infer['env'] = gym.make(params['env_name'])
     infer['env'].init(params)
-    infer['model'] = PPO(params, infer['env'].observation_space.shape[0]).to(params['device'])
+    infer['model'] = PPO(
+        params, infer['env'].observation_space.shape[0]).to(params['device'])
     infer['model'].load_state_dict(torch.load(path))
 
     x = transform_state(infer['env'].reset(), 0)
 
     for i in range(1, params['nt']):
         prob, m, u = run_network(infer, x)
-        state,_ = infer['env'].step(u)
+        state, _ = infer['env'].step(u)
         x_prime = transform_state(state, i)
         x = x_prime
 
@@ -88,9 +102,26 @@ def infer(path, label):
     plot.plot_SS(x, params['T'], title=f"State Space after {label}")
     plot.plot_error(x, params['T'], title=f"Errors after {label}")
 
+
 if __name__ == '__main__':
-    paths = ['0.24-250.save', '0.65-500.save', '0.82-1000.save', '0.87-2000.save', '0.89-3010.save', '0.89-4020.save','0.90-5020.save', '0.92-5910.save']
-    labels = ['250 Episodes', '500 Episodes', '1000 Episodes', '2000 Episodes', '3000 Episodes', '4000 Episodes', '5000 Episodes', '6000 Episodes']
+    paths = [
+        '0.24-250.save',
+        '0.65-500.save',
+        '0.82-1000.save',
+        '0.87-2000.save',
+        '0.89-3010.save',
+        '0.89-4020.save',
+        '0.90-5020.save',
+        '0.92-5910.save']
+    labels = [
+        '250 Episodes',
+        '500 Episodes',
+        '1000 Episodes',
+        '2000 Episodes',
+        '3000 Episodes',
+        '4000 Episodes',
+        '5000 Episodes',
+        '6000 Episodes']
     for i in range(len(paths)):
         infer(f'saves/pweighting/{paths[i]}', labels[i])
     plot.save_figs()
