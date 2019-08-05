@@ -54,13 +54,13 @@ def calculate_reward(x, acc):
 
     """
 
-    sum_x = np.zeros(params['num_dims'])
+    sum_x = np.zeros(2)
     for i in range(params['num_birds']):
-        sum_x += x[2 * i * params['num_dims'] : (2 * i + 1) * params['num_dims']]
+        sum_x += x[2 * i * 2 : (2 * i + 1) * 2]
 
-    sum_v = np.zeros(params['num_dims'])
+    sum_v = np.zeros(2)
     for i in range(params['num_birds']):
-        sum_v += x[(2 * i + 1) * params['num_dims'] : 2 * (i + 1) * params['num_dims']]
+        sum_v += x[(2 * i + 1) * 2 : 2 * (i + 1) * 2]
     
     eta = np.array([(sum_x/params['num_birds'])[0],
                    (sum_x/params['num_birds'])[1],
@@ -68,7 +68,19 @@ def calculate_reward(x, acc):
                    (sum_v/params['num_birds'])[1],
                    acc[0], acc[1]])
 
-    return (5 - 2 * np.linalg.norm(sum_x/params['num_birds']) - 0.5 * np.linalg.norm(sum_v/params['num_birds']) - 0.5 * np.linalg.norm(acc))/5
+    return (5 - 2 * np.linalg.norm(sum_x/params['num_birds'])
+            - 0.5 * np.linalg.norm(sum_v/params['num_birds'])
+            - 0.5 * np.linalg.norm(acc))/5
+
+def tm(x, i):
+    a = x.copy()
+    goal_i = params['num_birds']
+    cur_i = params['num_birds'] + i
+
+    a[2 * cur_i * 2: (2 * cur_i + 1) * 2] = x[2 * goal_i * 2: (2 * goal_i + 1) * 2]
+    a[2 * goal_i * 2: (2 * goal_i + 1) * 2] = x[2 * cur_i * 2: (2 * cur_i + 1) * 2]
+
+    return a
 
 def episode(train, ep_num):
     """ Runs one episode of training
@@ -88,15 +100,22 @@ def episode(train, ep_num):
     x = transform_state(train['env'].reset(), goal)
 
     for i in range(1, params['ep_len']):
-        prob, m, u = run_network(train, x)
-        step, acc = train['env'].step(u)
+
+        joined_prob, joined_u = [], []
+
+        for i in range(params['num_agents']):
+            prob, m, u = run_network(train, tm(x, i))
+            joined_prob.append(prob)
+            joined_u.append(u)
+        
+        step, acc = train['env'].step(joined_u)
         x_prime = transform_state(step, goal)
+        reward = calculate_reward(x, acc)
 
-        # if ep_num > 1000:
-        #     train['env'].render()
+        for i in range(params['num_agents']):
+            train['model'].put_data((tm(x, i), joined_u[i], reward, tm(x_prime, i),
+                                     joined_prob[i][joined_u[i]].item(), False))
 
-        reward = calculate_reward(x, acc)  # custom reward function given state
-        train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
         episode_score += reward
         x = x_prime
 
@@ -123,11 +142,11 @@ def transform_state(x, goal):
     x_transformed = x.copy()
     
     for agent_idx in range(params['n']):
-        x_transformed[2 * agent_idx * params['num_dims'] :
-                (2 * agent_idx + 1) * params['num_dims'] - 1] -= goal[0]
+        x_transformed[2 * agent_idx * 2 :
+                (2 * agent_idx + 1) * 2 - 1] -= goal[0]
 
-        x_transformed[2 * agent_idx * params['num_dims'] + 1 :
-                (2 * agent_idx + 1) * params['num_dims']] -= goal[1]
+        x_transformed[2 * agent_idx * 2 + 1 :
+                (2 * agent_idx + 1) * 2] -= goal[1]
 
     return x_transformed
 

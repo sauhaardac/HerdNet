@@ -10,7 +10,6 @@ from numpy.linalg import norm
 from math import exp
 import pickle
 import sys
-import random
 
 class BoidsEnv(gym.Env):
     def __init__(self):
@@ -299,7 +298,7 @@ def get_g(param, x, u):
     for i in range(param['num_birds'], param['n']):
         v_i = get_v(param, x, i)
         idx = i * 2 * param['num_dims']
-        g[idx : idx + 2 * param['num_dims']] = np.concatenate([v_i, G[u]])
+        g[idx : idx + 2 * param['num_dims']] = np.concatenate([v_i, G[u[i - param['num_birds']]]])
 
     return g
 
@@ -309,7 +308,7 @@ def get_g(param, x, u):
 ########################
 
 if __name__ == '__main__':
-    param = {'render' : True, 'num_birds' : 6, 'num_agents' : 1, 'num_dims' : 2, 'plim' : 1, 'vlim' : 1, 'min_dist_constraint' : 0.3,
+    param = {'render' : True, 'num_birds' : 4, 'num_agents' : 3, 'num_dims' : 2, 'plim' : 1, 'vlim' : 1, 'min_dist_constraint' : 0.3,
             'agentcolor' : 'blue', 'birdcolor' : 'green', 'r_comm' : 1., 'r_des' : 0.8, 'kx' : 2, 'kv' : 2,
             'lambda_a' : 0.1, 'dt' : 0.05}
 
@@ -321,5 +320,5 @@ if __name__ == '__main__':
 
     import time
     for i in range(1000):
-        x += (get_f(param, x) + get_g(param, x, random.randint(0, 3))) * param['dt']
+        x += (get_f(param, x) + get_g(param, x, np.random.randint(4, size=3))) * param['dt']
         plot_boids(param, x, plot)
