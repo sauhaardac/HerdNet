@@ -12,20 +12,20 @@ params = {}
 params['print_interval'] = 10  # print every 10 episodes
 
 # Network training hyperparams
-params['transfer'] = False
-params['lr'] = 0.0005
-params['gamma'] = 0.98
-params['lmbda'] = 0.95
-params['eps_clip'] = 0.1
-params['K_epoch'] = 3
+params['transfer']  = False
+params['lr']        = 0.0005
+params['gamma']     = 0.98
+params['lmbda']     = 0.95
+params['eps_clip']  = 0.1
+params['K_epoch']   = 3
 params['T_horizon'] = 20
 
 # Time
 params['t0'] = 0.
 params['tf'] = 20.
 params['dt'] = 0.05
-T = np.arange(params['t0'], params['tf'], params['dt'])
-params['T'] = np.reshape(T, (len(T), -1))
+T = np.arange( params['t0'], params['tf'], params['dt'])
+params['T'] = np.reshape(T, (len(T),-1))
 params['nt'] = len(params['T'])
 
 # Plot Parameters
