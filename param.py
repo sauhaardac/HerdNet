@@ -41,7 +41,7 @@ params['fn_plots'] = 'plots.pdf'
 # Simulation Parameters
 params['env_name'] = 'boids-v0'
 params['ep_len'] = 250
-params['num_birds'] = 3
+params['num_birds'] = 6
 params['num_agents'] = 1
 params['num_dims'] = 2
 params['plim'] = 1

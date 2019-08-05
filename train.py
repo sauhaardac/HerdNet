@@ -1,5 +1,3 @@
-""" Training module for RL model. """
-
 from param import params
 import gym_boids
 import gym
@@ -11,8 +9,10 @@ from util import Logger
 import sys
 import random
 
+# params['render'] = True
+
 def run_network(train, x):
-    """Run the network to determine action given current state.
+    """ Runs the network to determine action given current state
 
     Parameters:
         train (dict): dictionary of training variables
@@ -24,19 +24,30 @@ def run_network(train, x):
             prob (torch.FloatTensor): output of the network, raw softmax distribution
             m (torch.FloatTensor): categorical distribution of output
             u (torch.FloatTensor): actual action selected by the network
-
     """
+
     prob = train['model'].pi(torch.from_numpy(x).float().to(params['device']))
     m = Categorical(prob)
     u = m.sample().item()
     return prob, m, u
+
+def permute_eta(eta):
+	perm_mat = np.zeros((len(x), len(x)))
+	gamma = 3 # relative degree
+
+	for dim_idx in range(2):
+		row_idx = dim_idx * gamma
+		for gamma_idx in range(gamma):
+			col_idx = gamma_idx * 2 + dim_idx
+			perm_mat[row_idx, col_idx] = 1
+			row_idx += 1
+	return np.matmul(perm_mat, eta)
 
 def calculate_reward(x, acc):
     """ Calculates the reward function i.e. how good is the current state
 
     Parameters:
         x (np.array): current state
-        acc (np.array): current centroid acceleration
 
     Returns:
         reward (float): how good the state is
@@ -45,23 +56,19 @@ def calculate_reward(x, acc):
 
     sum_x = np.zeros(params['num_dims'])
     for i in range(params['num_birds']):
-        sum_x += x[2 * i * params['num_dims']: (2 * i + 1)
-                   * params['num_dims']]
+        sum_x += x[2 * i * params['num_dims'] : (2 * i + 1) * params['num_dims']]
 
     sum_v = np.zeros(params['num_dims'])
     for i in range(params['num_birds']):
-        sum_v += x[(2 * i + 1) * params['num_dims']: 2 * (i + 1)
-                   * params['num_dims']]
+        sum_v += x[(2 * i + 1) * params['num_dims'] : 2 * (i + 1) * params['num_dims']]
     
-    eta = permute_eta(np.array([(sum_x/params['num_birds'])[0],
+    eta = np.array([(sum_x/params['num_birds'])[0],
                    (sum_x/params['num_birds'])[1],
                    (sum_v/params['num_birds'])[0],
                    (sum_v/params['num_birds'])[1],
-                   acc[0], acc[1]]))
+                   acc[0], acc[1]])
 
-    V = np.matmul(np.matmul(eta.T, params['P']), eta)
-
-    return 1 - np.clip(np.power(V, 1/3), 0, 200) / 3
+    return (5 - 2 * np.linalg.norm(sum_x/params['num_birds']) - 0.5 * np.linalg.norm(sum_v/params['num_birds']) - 0.5 * np.linalg.norm(acc))/5
 
 def episode(train, ep_num):
     """ Runs one episode of training
@@ -115,6 +122,13 @@ def transform_state(x, goal):
 
     x_transformed = x.copy()
     
+    for agent_idx in range(params['n']):
+        x_transformed[2 * agent_idx * params['num_dims'] :
+                (2 * agent_idx + 1) * params['num_dims'] - 1] -= goal[0]
+
+        x_transformed[2 * agent_idx * params['num_dims'] + 1 :
+                (2 * agent_idx + 1) * params['num_dims']] -= goal[1]
+
     return x_transformed
 
 def train():
