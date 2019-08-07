@@ -61,17 +61,7 @@ def transform_state(x, i):
 
     return x_transformed
 
-def tm(x, i):
-    a = x.copy()
-    goal_i = params['num_birds']
-    cur_i = params['num_birds'] + i
-
-    a[2 * cur_i * 2: (2 * cur_i + 1) * 2] = x[2 * goal_i * 2: (2 * goal_i + 1) * 2]
-    a[2 * goal_i * 2: (2 * goal_i + 1) * 2] = x[2 * cur_i * 2: (2 * cur_i + 1) * 2]
-
-    return a
-
-def infer(path):
+def infer(path, label):
     """ Trains an RL model.
 
     First initializes environment, logging, and machine learning model. Then iterates
@@ -89,20 +79,18 @@ def infer(path):
     x = transform_state(infer['env'].reset(), 0)
 
     for i in range(1, params['nt']):
-        joined_prob, joined_u = [], []
-
-        for j in range(params['num_agents']):
-            prob, m, u = run_network(infer, tm(x, j))
-            joined_prob.append(prob)
-            joined_u.append(u)
-        
-        step, acc = infer['env'].step(joined_u)
-        x_prime = transform_state(step, i)
+        prob, m, u = run_network(infer, x)
+        state,_ = infer['env'].step(u)
+        x_prime = transform_state(state, i)
+        x = x_prime
 
     x = np.array(infer['env'].get_x())
-    plot.plot_SS(x, params['T'])
-    plot.plot_error(x, params['T'])
+    plot.plot_SS(x, params['T'], title=f"State Space after {label}")
+    plot.plot_error(x, params['T'], title=f"Errors after {label}")
 
 if __name__ == '__main__':
-    infer('saves/notidiot/0.82-4820.save')
+    paths = ['0.24-250.save', '0.65-500.save', '0.82-1000.save', '0.87-2000.save', '0.89-3010.save', '0.89-4020.save','0.90-5020.save', '0.92-5910.save']
+    labels = ['250 Episodes', '500 Episodes', '1000 Episodes', '2000 Episodes', '3000 Episodes', '4000 Episodes', '5000 Episodes', '6000 Episodes']
+    for i in range(len(paths)):
+        infer(f'saves/pweighting/{paths[i]}', labels[i])
     plot.save_figs()
