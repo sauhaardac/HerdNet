@@ -141,7 +141,7 @@ def train():
     train = {}
     train['env'] = gym.make(params['env_name'])
     train['env'].init(params)
-    train['model'] = PPO(params, train['env'].observation_space.shape[0]).to(params['device'])
+    train['model'] = PPO(params, train['env'].observation_space.shape[0], out=4**params['num_agents']).to(params['device'])
 
     if params['transfer']:
         train['model'].load_state_dict(torch.load(sys.argv[1]))
