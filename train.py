@@ -47,25 +47,25 @@ def calculate_reward(x, acc):
         reward (float): how good the state is
 
     """
-    sum_x = np.zeros(params['num_dims'])
+    coordinates = [(0,0), (-1, 0), (1, 0), (-0.5, np.sqrt(3)/2), 
+                   (0.5, np.sqrt(3)/2), (0, np.sqrt(3))]
+
+    X = np.arange(-2, 2, 0.05)
+    Y = np.arange(-2, 2, 0.05)
+
+    X, Y = np.meshgrid(X, Y)
+    Z = X*0
+    Z_des = X*0
+
+    for ax, ay in coordinates:
+        ay -= np.sqrt(3)/2
+        Z_des = np.maximum(Z_des, np.exp(-((X-ax)**2 / 1 + (Y-ay)**2 / 1)))
+
     for i in range(params['num_birds']):
-        sum_x += x[2 * i * params['num_dims']: (2 * i + 1)
-                   * params['num_dims']]
+        ax, ay = util.get_p(x, i)
+        Z = np.maximum(Z, np.exp(-((X-ax)**2 / 1 + (Y-ay)**2 / 1)))
 
-    sum_v = np.zeros(params['num_dims'])
-    for i in range(params['num_birds']):
-        sum_v += x[(2 * i + 1) * params['num_dims']: 2 * (i + 1)
-                   * params['num_dims']]
-
-    eta = util.permute_eta(np.array([(sum_x/params['num_birds'])[0],
-                                     (sum_x/params['num_birds'])[1],
-                                     (sum_v/params['num_birds'])[0],
-                                     (sum_v/params['num_birds'])[1],
-                                     acc[0], acc[1]]))
-
-    V = np.matmul(np.matmul(eta.T, params['P']), eta)
-
-    return 1 - np.clip(np.power(V, 1/3), 0, 200) / 3
+    return 1 - np.linalg.norm(Z - Z_des) / 32
 
 
 def episode(train, ep_num):
@@ -143,7 +143,7 @@ def train():
     train['env'].init(params)
     train['model'] = PPO(
         params,
-        train['env'].observation_space.shape[0]).to(
+        train['env'].observation_space.shape[0], out=4**params['num_agents']).to(
         params['device'])
 
     if params['transfer']:
@@ -159,8 +159,8 @@ def train():
         score += ep_score
 
         if n_epi % params['print_interval'] == 0 and n_epi != 0:
-            print(f"Episode #{n_epi:5d} | Avg Score : {score /" +
-                  "params['print_interval']:2.2f}")
+            print(f"Episode #{n_epi:5d} | Avg Score :" +
+                  f"{score / params['print_interval']:2.2f}")
 
             if n_epi >= 0:
                 logger.save_model(

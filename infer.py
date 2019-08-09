@@ -74,7 +74,7 @@ def infer(path, label):
         x = x_prime
 
     x = np.array(infer['env'].get_x())
-    plot.plot_SS(x, params['T'], title=f"State Space after {label}")
+    plot.plot_formation_SS(x, params['T'], title=f"State Space after {label}")
 
 
 if __name__ == '__main__':

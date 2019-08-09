@@ -5,6 +5,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import util
 import numpy as np
 import os
+import subprocess
 
 
 def plot_error(x, T, title="Errors"):
@@ -37,6 +38,24 @@ def plot_error(x, T, title="Errors"):
     plt.plot(T, ae[:, 1], label='ae_y', alpha=0.3)
 
     plt.legend()
+    plt.title(title)
+
+def plot_formation_SS(X, T, title='State Space'):
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.set_ylim([-2, 2])
+    ax.set_xlim([-2, 2])
+
+    for i in range(params['n']):
+        P_i = util.get_P(X, i)
+
+        P_average = np.zeros(2)
+        for t in range(params['nt']):
+            P_average += P_i[t] / params['nt']
+
+        
+        ax.scatter(P_average[0], P_average[1], marker=params['start_marker'])
+        ax.scatter(P_i[-1, 0], P_i[-1, 1], marker=params['stop_marker'])
+
     plt.title(title)
 
 
@@ -117,3 +136,5 @@ def save_figs():
         pp.savefig(plt.figure(i))
         plt.close(plt.figure(i))
     pp.close()
+
+    subprocess.Popen(['xdg-open ' + fn], shell=True)

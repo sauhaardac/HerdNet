@@ -19,6 +19,17 @@ def permute_eta(eta):
     return np.matmul(perm_mat, eta)
 
 
+def get_p(X, i):
+    """Get position of agent i for all time.
+
+    Parameters:
+        X (np.array): state over all time numpy array
+        i (int): Agent # to return
+
+    """
+    state_idx = 2 * params['num_dims'] * i
+    return X[state_idx: state_idx + params['num_dims']]
+
 def get_P(X, i):
     """Get position of agent i for all time.
 

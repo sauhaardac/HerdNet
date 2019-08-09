@@ -96,23 +96,19 @@ def init_state(param):
 
     x0 = np.zeros(2 * param['n'] * param['num_dims'])
 
-    min_dist = 0
-    while min_dist < param['min_dist_constraint']:
-        for i in range(param['num_birds']):
-            p_i = rand(param['num_dims']) * param['plim'] - param['plim'] / 2
-            v_i = rand(param['num_dims']) * param['vlim'] - param['vlim'] / 2
+    for i in range(param['num_birds']):
+        p_i = rand(param['num_dims']) * param['plim'] - param['plim'] / 2
+        v_i = rand(param['num_dims']) * param['vlim'] - param['vlim'] / 2
 
-            idx = i * 2 * param['num_dims']
-            x0[idx : idx + 2 * param['num_dims']] = np.concatenate([p_i, v_i])
+        idx = i * 2 * param['num_dims']
+        x0[idx : idx + 2 * param['num_dims']] = np.concatenate([p_i, v_i])
 
-        for i in range(param['num_agents']):
-            p_i = rand(param['num_dims']) * param['plim'] - param['plim'] / 2
-            v_i = rand(param['num_dims']) * param['vlim'] - param['vlim'] / 2
+    for i in range(param['num_agents']):
+        p_i = rand(param['num_dims']) * param['plim'] - param['plim'] / 2
+        v_i = rand(param['num_dims']) * param['vlim'] - param['vlim'] / 2
 
-            idx = (i + param['num_birds']) * 2 * param['num_dims']
-            x0[idx : idx + 2 * param['num_dims']] = np.concatenate([p_i, v_i])
-
-        min_dist = get_min_dist(param, x0)
+        idx = (i + param['num_birds']) * 2 * param['num_dims']
+        x0[idx : idx + 2 * param['num_dims']] = np.concatenate([p_i, v_i])
 
     return x0
 
@@ -280,7 +276,7 @@ def get_f(param, x):
             r_ij = p_j - p_i
 
             a_i += A[i, j] * (param['kv'] * (v_j - v_i))
-            a_i += param['kx'] * r_ij * (1 - param['r_des']/norm(r_ij))
+            a_i += A[i, j] * param['kx'] * r_ij * (1 - param['r_des']/norm(r_ij))
 
         idx = i * 2 * param['num_dims']
         f[idx : idx + 2 * param['num_dims']] = np.concatenate([v_i, a_i])
@@ -288,7 +284,7 @@ def get_f(param, x):
     return f
 
 def get_g(param, x, u):
-
+     
     # Define control matrix
     G = {0 : np.array([0,  param['a_u']]),
          1 : np.array([0, -param['a_u']]),
@@ -299,7 +295,7 @@ def get_g(param, x, u):
     for i in range(param['num_birds'], param['n']):
         v_i = get_v(param, x, i)
         idx = i * 2 * param['num_dims']
-        g[idx : idx + 2 * param['num_dims']] = np.concatenate([v_i, G[u]])
+        g[idx : idx + 2 * param['num_dims']] = np.concatenate([v_i, G[(u // (4**(i - param['num_birds']))) % 4]])
 
     return g
 
@@ -309,7 +305,7 @@ def get_g(param, x, u):
 ########################
 
 if __name__ == '__main__':
-    param = {'render' : True, 'num_birds' : 6, 'num_agents' : 1, 'num_dims' : 2, 'plim' : 1, 'vlim' : 1, 'min_dist_constraint' : 0.3,
+    param = {'render' : True, 'num_birds' : 6, 'num_agents' : 5, 'num_dims' : 2, 'plim' : 1, 'vlim' : 1, 'min_dist_constraint': 10000000000, 
             'agentcolor' : 'blue', 'birdcolor' : 'green', 'r_comm' : 1., 'r_des' : 0.8, 'kx' : 2, 'kv' : 2,
             'lambda_a' : 0.1, 'dt' : 0.05}
 
@@ -321,5 +317,5 @@ if __name__ == '__main__':
 
     import time
     for i in range(1000):
-        x += (get_f(param, x) + get_g(param, x, random.randint(0, 3))) * param['dt']
+        x += (get_f(param, x) + get_g(param, x, np.random.randint(4**param['num_agents']))) * param['dt']
         plot_boids(param, x, plot)
