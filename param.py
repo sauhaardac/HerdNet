@@ -13,7 +13,7 @@ params['print_interval'] = 10  # print every 10 episodes
 
 # Network training hyperparams
 params['transfer'] = False
-params['lr'] = 0.0005
+params['lr'] = 0.0009
 params['gamma'] = 0.98
 params['lmbda'] = 0.95
 params['eps_clip'] = 0.1
@@ -41,13 +41,13 @@ params['fn_plots'] = 'plots.pdf'
 # Simulation Parameters
 params['env_name'] = 'boids-v0'
 params['ep_len'] = 250
-params['num_birds'] = 6
+params['num_birds'] = 1
 params['num_agents'] = 3
 params['num_dims'] = 2
 params['plim'] = 1
 params['vlim'] = 1
 params['min_dist_constraint'] = np.inf
-params['r_comm'] = 1.
+params['r_comm'] = 3.0
 params['r_des'] = 1.
 params['kx'] = 2
 params['kv'] = 2

@@ -47,8 +47,10 @@ def calculate_reward(x, acc):
         reward (float): how good the state is
 
     """
-    coordinates = [(0,0), (-1, 0), (1, 0), (-0.5, np.sqrt(3)/2), 
-                   (0.5, np.sqrt(3)/2), (0, np.sqrt(3))]
+    coordinates = [(0,0),
+                   (np.cos(-np.pi/6), np.sin(-np.pi/6)),
+                   (np.cos(-5*np.pi/6), np.sin(-5*np.pi/6)),
+                   (np.cos(np.pi/2), np.sin(np.pi/2))]
 
     X = np.arange(-2, 2, 0.05)
     Y = np.arange(-2, 2, 0.05)
@@ -65,7 +67,7 @@ def calculate_reward(x, acc):
         ax, ay = util.get_p(x, i)
         Z = np.maximum(Z, np.exp(-((X-ax)**2 / 1 + (Y-ay)**2 / 1)))
 
-    return 1 - np.linalg.norm(Z - Z_des) / 32
+    return 2.6 - np.linalg.norm(Z - Z_des) / 15
 
 
 def episode(train, ep_num):
