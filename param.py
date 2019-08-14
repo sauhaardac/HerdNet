@@ -22,7 +22,7 @@ params['T_horizon'] = 20
 
 # Time
 params['t0'] = 0.
-params['tf'] = 20.
+params['tf'] = 30.
 params['dt'] = 0.05
 T = np.arange(params['t0'], params['tf'], params['dt'])
 params['T'] = np.reshape(T, (len(T), -1))

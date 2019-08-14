@@ -63,7 +63,7 @@ def calculate_reward(x, acc):
         ay -= np.sqrt(3)/2
         Z_des = np.maximum(Z_des, np.exp(-((X-ax)**2 / 1 + (Y-ay)**2 / 1)))
 
-    for i in range(params['num_birds']):
+    for i in range(params['num_agents']):
         ax, ay = util.get_p(x, i)
         Z = np.maximum(Z, np.exp(-((X-ax)**2 / 1 + (Y-ay)**2 / 1)))
 
@@ -92,9 +92,6 @@ def episode(train, ep_num):
         step, acc = train['env'].step(u)
         x_prime = transform_state(step, goal)
 
-        # if ep_num > 1000:
-        #     train['env'].render()
-
         reward = calculate_reward(x, acc)  # custom reward function given state
         train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
         episode_score += reward
@@ -120,16 +117,7 @@ def transform_state(x, goal):
         x_transformed (np.array): augmented/transformed state
 
     """
-    x_transformed = x.copy()
-
-    for agent_idx in range(params['n']):
-        x_transformed[2 * agent_idx * params['num_dims']:
-                      (2 * agent_idx + 1) * params['num_dims'] - 1] -= goal[0]
-
-        x_transformed[2 * agent_idx * params['num_dims'] + 1:
-                      (2 * agent_idx + 1) * params['num_dims']] -= goal[1]
-
-    return x_transformed
+    return x
 
 
 def train():
