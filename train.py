@@ -36,7 +36,7 @@ def run_network(train, x):
     return prob, m, u
 
 
-def calculate_reward(x, acc):
+def calculate_reward(x, acc, kr, pr, std):
     """Calculates the reward function i.e. how good is the current state.
 
     Parameters:
@@ -47,10 +47,7 @@ def calculate_reward(x, acc):
         reward (float): how good the state is
 
     """
-    coordinates = [(0,0),
-                   (np.cos(-np.pi/6), np.sin(-np.pi/6)),
-                   (np.cos(-5*np.pi/6), np.sin(-5*np.pi/6)),
-                   (np.cos(np.pi/2), np.sin(np.pi/2))]
+    coordinates = [(1,1)]
 
     X = np.arange(-2, 2, 0.05)
     Y = np.arange(-2, 2, 0.05)
@@ -61,16 +58,16 @@ def calculate_reward(x, acc):
 
     for ax, ay in coordinates:
         ay -= np.sqrt(3)/2
-        Z_des = np.maximum(Z_des, np.exp(-((X-ax)**2 / 1 + (Y-ay)**2 / 1)))
+        Z_des = np.maximum(Z_des, np.exp(-((X-ax)**2 / std + (Y-ay)**2 / std)))
 
     for i in range(params['num_agents']):
         ax, ay = util.get_p(x, i)
-        Z = np.maximum(Z, np.exp(-((X-ax)**2 / 1 + (Y-ay)**2 / 1)))
+        Z = np.maximum(Z, np.exp(-((X-ax)**2 / std + (Y-ay)**2 / std)))
 
-    return 2.6 - np.linalg.norm(Z - Z_des) / 15
+    return 1 - np.power(np.linalg.norm(Z - Z_des), pr) * kr, np.linalg.norm(util.get_p(x, 0) - np.array([1, 1]))
 
 
-def episode(train, ep_num):
+def episode(train, ep_num, kr, pr, std):
     """ Runs one episode of training
 
     Parameters:
@@ -92,9 +89,9 @@ def episode(train, ep_num):
         step, acc = train['env'].step(u)
         x_prime = transform_state(step, goal)
 
-        reward = calculate_reward(x, acc)  # custom reward function given state
+        reward, goodness = calculate_reward(x, acc, kr, pr, std)  # custom reward function given state
         train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
-        episode_score += reward
+        episode_score += goodness
         x = x_prime
 
     episode_score /= params['ep_len']
@@ -120,7 +117,7 @@ def transform_state(x, goal):
     return x
 
 
-def train():
+def train(args, log=False, num_eps=100):
     """ Trains an RL model.
 
     First initializes environment, logging, and machine learning model,
@@ -128,6 +125,7 @@ def train():
     intermittently.
     """
 
+    kr, pr, std = args
     train = {}
     train['env'] = gym.make(params['env_name'])
     train['env'].init(params)
@@ -139,31 +137,47 @@ def train():
     if params['transfer']:
         train['model'].load_state_dict(torch.load(sys.argv[1]))
 
-    logger = Logger()
+    if log:
+        logger = Logger()
 
     score = 0.0
+    ep_score = 0
+    last_score = 10000 
 
-    for n_epi in range(10**6):
-        ep_score = episode(train, n_epi)
-        logger.episode_score(ep_score, n_epi)
+    for n_epi in range(num_eps):
+        ep_score = episode(train, n_epi, kr, pr, std)
+        std *= 0.99
         score += ep_score
 
-        if n_epi % params['print_interval'] == 0 and n_epi != 0:
-            print(f"Episode #{n_epi:5d} | Avg Score :" +
-                  f"{score / params['print_interval']:2.2f}")
+        if log:
+            logger.episode_score(ep_score, n_epi)
+            if n_epi % params['print_interval'] == 0 and n_epi != 0:
+                print(f"Episode #{n_epi:5d} | Avg Score :" +
+                      f"{score / params['print_interval']:2.2f}")
 
-            if n_epi >= 0:
-                logger.save_model(
-                    score / params['print_interval'],
-                    train['model'].state_dict(),
-                    n_epi)
+                if n_epi >= 0:
+                    logger.save_model(
+                        score / params['print_interval'],
+                        train['model'].state_dict(),
+                        n_epi)
 
+                score = 0.0
+        elif n_epi % 10 == 0 and n_epi != 0:
+            last_score = score / 10
             score = 0.0
 
         train['model'].train_net()
 
-    env.close()
+    train['env'].close()
+    return last_score
 
 
 if __name__ == '__main__':
-    train()
+    # from hyperopt import hp, tpe, fmin
+    # space = [hp.uniform('kr', 1/24, 1), hp.uniform('pr', 1/3, 1), hp.uniform('std', 0.5, 2)]
+    # best = fmin(train, space, algo=tpe.suggest, max_evals=40)
+    # print(best)
+    best = {'kr': 0.21183340208383372, 'pr': 0.49020013438473126, 'std': 1.289503679565993}
+    # best = {'kr': 0.7179338426650235, 'pr': 0.9504521969659028, 'std': 1.9015236564373323}
+    # best = {'kr': 0.9005977992525029, 'pr': 0.4791564901464124, 'std': 1.1123498688314886}
+    train((best['kr'], best['pr'], best['std']), log=True, num_eps=5000)
