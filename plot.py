@@ -45,16 +45,16 @@ def plot_formation_SS(X, T, title='State Space'):
     ax.set_ylim([-2, 2])
     ax.set_xlim([-2, 2])
 
+    ax.scatter([1,-1], [1, -1], marker=params['stop_marker'], color='black', label='Targets')
+
     for i in range(params['n']):
         P_i = util.get_P(X, i)
 
-        P_average = np.zeros(2)
-        for t in range(params['nt']):
-            P_average += P_i[t] / params['nt']
-
-        
-        ax.scatter(P_average[0], P_average[1], marker=params['start_marker'])
+        ax.plot(P_i[:, 0], P_i[:, 1], alpha=0.3)
+        ax.scatter(P_i[0, 0], P_i[0, 1], marker=params['start_marker'])
         ax.scatter(P_i[-1, 0], P_i[-1, 1], marker=params['stop_marker'])
+
+    plt.legend()
 
     plt.title(title)
 

@@ -62,7 +62,10 @@ def infer(path, label):
     infer['env'] = gym.make(params['env_name'])
     infer['env'].init(params)
     infer['model'] = PPO(
-        params, infer['env'].observation_space.shape[0]).to(params['device'])
+        params,
+        infer['env'].observation_space.shape[0], out=4**params['num_agents']).to(
+        params['device'])
+
     infer['model'].load_state_dict(torch.load(path))
 
     x = transform_state(infer['env'].reset(), 0)
@@ -78,7 +81,7 @@ def infer(path, label):
 
 
 if __name__ == '__main__':
-    paths = ['0.76-2720.save']
-    for i in range(len(paths)):
-        infer(f'saves/maxr/{paths[i]}', 'Training')
+    paths = ['saves/doublerun/0.176-4630.save', '3.059-870.save']
+    for path in paths:
+        infer(path, 'Training')
     plot.save_figs()

@@ -36,7 +36,7 @@ def run_network(train, x):
     return prob, m, u
 
 
-def calculate_reward(x, acc, kr, pr, std):
+def calculate_reward(x, acc, hyper):
     """Calculates the reward function i.e. how good is the current state.
 
     Parameters:
@@ -47,27 +47,25 @@ def calculate_reward(x, acc, kr, pr, std):
         reward (float): how good the state is
 
     """
-    coordinates = [(1,1)]
+    coordinates = [np.array([1, 1]), np.array([-1, -1])]
 
-    X = np.arange(-2, 2, 0.05)
-    Y = np.arange(-2, 2, 0.05)
+    avg_dist = 0
+    avg_vel = 0
+    for coordinate in coordinates:
+        min_dist = 1000000000000
+        min_vel = 1000000000000
+        for i in range(params['num_agents']):
+            dist = np.linalg.norm(util.get_p(x, i) - coordinate) 
+            if dist < min_dist:
+                min_dist = dist
+                min_vel = np.linalg.norm(util.get_v(x, i))
+        avg_dist += min_dist / params['num_agents']
+        avg_vel += min_dist / params['num_agents']
 
-    X, Y = np.meshgrid(X, Y)
-    Z = X*0
-    Z_des = X*0
-
-    for ax, ay in coordinates:
-        ay -= np.sqrt(3)/2
-        Z_des = np.maximum(Z_des, np.exp(-((X-ax)**2 / std + (Y-ay)**2 / std)))
-
-    for i in range(params['num_agents']):
-        ax, ay = util.get_p(x, i)
-        Z = np.maximum(Z, np.exp(-((X-ax)**2 / std + (Y-ay)**2 / std)))
-
-    return 1 - np.power(np.linalg.norm(Z - Z_des), pr) * kr, np.linalg.norm(util.get_p(x, 0) - np.array([1, 1]))
+    return 1 - np.power(hyper['coeff'] * avg_dist + hyper['coeff2'] * avg_vel, hyper['power']) / hyper['div'], avg_dist
 
 
-def episode(train, ep_num, kr, pr, std):
+def episode(train, hyper):
     """ Runs one episode of training
 
     Parameters:
@@ -89,7 +87,7 @@ def episode(train, ep_num, kr, pr, std):
         step, acc = train['env'].step(u)
         x_prime = transform_state(step, goal)
 
-        reward, goodness = calculate_reward(x, acc, kr, pr, std)  # custom reward function given state
+        reward, goodness = calculate_reward(x, acc, hyper)  # custom reward function given state
         train['model'].put_data((x, u, reward, x_prime, prob[u].item(), False))
         episode_score += goodness
         x = x_prime
@@ -117,7 +115,7 @@ def transform_state(x, goal):
     return x
 
 
-def train(args, log=False, num_eps=100):
+def train(hyper, log=False, num_eps=100):
     """ Trains an RL model.
 
     First initializes environment, logging, and machine learning model,
@@ -125,7 +123,6 @@ def train(args, log=False, num_eps=100):
     intermittently.
     """
 
-    kr, pr, std = args
     train = {}
     train['env'] = gym.make(params['env_name'])
     train['env'].init(params)
@@ -145,8 +142,7 @@ def train(args, log=False, num_eps=100):
     last_score = 10000 
 
     for n_epi in range(num_eps):
-        ep_score = episode(train, n_epi, kr, pr, std)
-        std *= 0.99
+        ep_score = episode(train, hyper)
         score += ep_score
 
         if log:
@@ -173,11 +169,8 @@ def train(args, log=False, num_eps=100):
 
 
 if __name__ == '__main__':
-    # from hyperopt import hp, tpe, fmin
-    # space = [hp.uniform('kr', 1/24, 1), hp.uniform('pr', 1/3, 1), hp.uniform('std', 0.5, 2)]
-    # best = fmin(train, space, algo=tpe.suggest, max_evals=40)
-    # print(best)
-    best = {'kr': 0.21183340208383372, 'pr': 0.49020013438473126, 'std': 1.289503679565993}
-    # best = {'kr': 0.7179338426650235, 'pr': 0.9504521969659028, 'std': 1.9015236564373323}
-    # best = {'kr': 0.9005977992525029, 'pr': 0.4791564901464124, 'std': 1.1123498688314886}
-    train((best['kr'], best['pr'], best['std']), log=True, num_eps=5000)
+    from hyperopt import hp, tpe, fmin
+    space = [hp.uniform('power', 1/24, 1), hp.uniform('div', 1, 10), hp.uniform('coeff', 0, 1), hp.uniform('coeff2', 0, 1),]
+    best = fmin(train, {'power' : space[0], 'div' : space[1], 'coeff': space[2], 'coeff2' : space[3]}, algo=tpe.suggest, max_evals=40)
+    # best = {'div': 1.5425666248304248, 'power': 0.3526938268834692}
+    train(best, log=True, num_eps=5000)
