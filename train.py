@@ -47,7 +47,7 @@ def calculate_reward(x, acc, hyper):
         reward (float): how good the state is
 
     """
-    coordinates = [np.array([1, 1]), np.array([-1, -1])]
+    coordinates = [np.array([0, 1]), np.array([np.sqrt(3)/2, -1/2]), np.array([-np.sqrt(3)/2, -1/2])]
 
     avg_dist = 0
     avg_vel = 0
@@ -172,5 +172,6 @@ if __name__ == '__main__':
     from hyperopt import hp, tpe, fmin
     space = [hp.uniform('power', 1/24, 1), hp.uniform('div', 1, 10), hp.uniform('coeff', 0, 1), hp.uniform('coeff2', 0, 1),]
     best = fmin(train, {'power' : space[0], 'div' : space[1], 'coeff': space[2], 'coeff2' : space[3]}, algo=tpe.suggest, max_evals=40)
+    print(best)
     # best = {'div': 1.5425666248304248, 'power': 0.3526938268834692}
     train(best, log=True, num_eps=5000)
